@@ -1,0 +1,42 @@
+{
+  "name": "sovereign-net-os",
+  "version": "0.1.0",
+  "description": "Sovereign Net OS — Decentralized Internet Node Desktop App",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl"
+  },
+  "dependencies": {
+    "kubo-rpc-client": "^4.1.0"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "net.sovereign.os",
+    "productName": "Sovereign Net OS",
+    "icon": "assets/icon",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "index.html"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Network"
+    }
+  }
+}

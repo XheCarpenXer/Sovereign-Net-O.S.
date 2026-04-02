@@ -731,7 +731,6 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
                   <div style="flex:1"></div>
                   <button class="btn btn-sm btn-pk" onclick="publishPost()">✦ Publish</button>
                 </div>
-                <div id="postAttachPreview" style="display:none;font-size:10px;color:var(--cyan);padding:4px 2px 0;border-top:1px solid var(--border);margin-top:6px"></div>
               </div>
             </div>
             <div class="scroll" style="flex:1;padding:12px 14px" id="socialFeed"></div>
@@ -1205,7 +1204,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
                   </div>
                 </div>
                 <div style="padding:12px">
-                  <div class="field"><label>Public Key (ECDSA P-256)</label>
+                  <div class="field"><label>Public Key (Ed25519)</label>
                     <div class="key-display" id="pubKeyDisplay">ed25519:4KRJ2Y8Cx3mNpz7HtVqbLwDfGsAeU1...</div>
                   </div>
                   <div class="field"><label>DID Document Hash</label>
@@ -1666,9 +1665,9 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
       <button class="modal-close" onclick="closeModal('uploadModal')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="file-drop-zone" id="uploadModalDropZone" style="margin-bottom:12px;cursor:pointer" onclick="document.getElementById('uploadModalFileInput').click()" ondragover="event.preventDefault()" ondrop="handleUploadModalDrop(event)">
+      <div class="file-drop-zone" style="margin-bottom:12px">
         <div style="font-size:32px;margin-bottom:8px">📁</div>
-        <div id="uploadModalDropLabel">Drop files or <strong>browse</strong></div>
+        <div>Drop files or <strong>browse</strong></div>
         <div style="font-size:10px;color:var(--text3);margin-top:4px">Files encrypted with your key before upload</div>
       </div>
       <div class="field"><label>Share With</label>
@@ -1694,10 +1693,6 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
     </div>
   </div>
 </div>
-
-<!-- Hidden file inputs for pickers -->
-<input type="file" id="postFileInput" style="display:none" onchange="handlePostFileSelected(this)">
-<input type="file" id="uploadModalFileInput" style="display:none" onchange="handleUploadModalFileSelected(this)">
 
 <!-- Upload Video Modal -->
 <div class="modal-overlay" id="uploadVideoModal">
@@ -1983,7 +1978,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
 'use strict';
 /* ══════════════════════════════════════════════════
    SOVEREIGN NET OS — Real P2P Engine
-   ─ Real ECDSA P-256 identity via crypto.subtle
+   ─ Real Ed25519 identity via crypto.subtle
    ─ Real cross-tab discovery via BroadcastChannel
    ─ Real WebRTC DataChannels for peer messaging
    ─ Real AES-GCM encryption for private channels
@@ -2019,7 +2014,7 @@ const DAG = (() => {
     node.cid = cid;
     let sig = null;
     if (privateKey) {
-      const sigBuf = await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, privateKey, new TextEncoder().encode(JSON.stringify({ cid, data, ts: node.ts, clock })));
+      const sigBuf = await crypto.subtle.sign('Ed25519', privateKey, new TextEncoder().encode(JSON.stringify({ cid, data, ts: node.ts, clock })));
       sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
     }
     node.sig = sig;
@@ -2033,9 +2028,9 @@ const DAG = (() => {
     if (!node.sig || !pubKeyB64) return false;
     try {
       const raw    = typeof pubKeyB64==='string' ? Uint8Array.from(atob(pubKeyB64),c=>c.charCodeAt(0)).buffer : pubKeyB64;
-      const pubKey = await crypto.subtle.importKey('spki', raw, { name:'ECDSA', namedCurve:'P-256' }, true, ['verify']);
+      const pubKey = await crypto.subtle.importKey('spki', raw, { name:'Ed25519' }, true, ['verify']);
       const sigBuf = Uint8Array.from(atob(node.sig),c=>c.charCodeAt(0)).buffer;
-      return await crypto.subtle.verify({ name:'ECDSA', hash:'SHA-256' }, pubKey, sigBuf, new TextEncoder().encode(JSON.stringify({ cid:node.cid, data:node.data, ts:node.ts, clock:node.clock })));
+      return await crypto.subtle.verify('Ed25519', pubKey, sigBuf, new TextEncoder().encode(JSON.stringify({ cid:node.cid, data:node.data, ts:node.ts, clock:node.clock })));
     } catch { return false; }
   }
 
@@ -2167,7 +2162,7 @@ const SigPipeline = (() => {
   async function signAndRecord(privateKey, payload, context) {
     const t=performance.now();
     const buf=new TextEncoder().encode(typeof payload==='string'?payload:JSON.stringify(payload));
-    const sigBuf=await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' },privateKey,buf);
+    const sigBuf=await crypto.subtle.sign('Ed25519',privateKey,buf);
     const sig=btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
     record({type:'sign',context,ms:(performance.now()-t).toFixed(2),ok:true});
     return sig;
@@ -2176,9 +2171,9 @@ const SigPipeline = (() => {
     const t=performance.now(); let ok=false;
     try {
       const raw=Uint8Array.from(atob(pubKeyB64),c=>c.charCodeAt(0)).buffer;
-      const pk=await crypto.subtle.importKey('spki',raw,{name:'ECDSA',namedCurve:'P-256'},true,['verify']);
+      const pk=await crypto.subtle.importKey('spki',raw,{name:'Ed25519'},true,['verify']);
       const buf=new TextEncoder().encode(typeof payload==='string'?payload:JSON.stringify(payload));
-      ok=await crypto.subtle.verify({ name:'ECDSA', hash:'SHA-256' },pk,Uint8Array.from(atob(sig),c=>c.charCodeAt(0)).buffer,buf);
+      ok=await crypto.subtle.verify('Ed25519',pk,Uint8Array.from(atob(sig),c=>c.charCodeAt(0)).buffer,buf);
     } catch {}
     record({type:'verify',context,ms:(performance.now()-t).toFixed(2),ok});
     return ok;
@@ -2260,10 +2255,10 @@ const DB = (() => {
   };
 })();
 
-/* ── Crypto: real ECDSA P-256 identity ── */
+/* ── Crypto: real Ed25519 identity ── */
 const Crypto = {
   async generateIdentity() {
-    const kp = await crypto.subtle.generateKey({ name:'ECDSA', namedCurve:'P-256' }, true, ['sign','verify']);
+    const kp = await crypto.subtle.generateKey({ name:'Ed25519' }, true, ['sign','verify']);
     const pub = await crypto.subtle.exportKey('spki', kp.publicKey);
     const priv = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
     const hash = await crypto.subtle.digest('SHA-256', pub);
@@ -2271,34 +2266,20 @@ const Crypto = {
     return { publicKey: kp.publicKey, privateKey: kp.privateKey, pubRaw: pub, privRaw: priv, did: `did:svn:0x${hex.slice(0,40)}` };
   },
   async importIdentity(pubRaw, privRaw) {
-    // Normalize any stored format to ArrayBuffer:
-    // stored as base64 string, ArrayBuffer, TypedArray, or plain object from structured clone
-    const toBuffer = v => {
-      if (typeof v === 'string') {
-        // base64 string
-        return Uint8Array.from(atob(v), c => c.charCodeAt(0)).buffer;
-      }
-      if (v instanceof ArrayBuffer) return v;
-      if (ArrayBuffer.isView(v)) return v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength);
-      // Plain object (detached structured-clone artifact)
-      return new Uint8Array(Object.values(v)).buffer;
-    };
-    const pubBuf  = toBuffer(pubRaw);
-    const privBuf = toBuffer(privRaw);
-    const publicKey  = await crypto.subtle.importKey('spki',  pubBuf,  { name:'ECDSA', namedCurve:'P-256' }, true, ['verify']);
-    const privateKey = await crypto.subtle.importKey('pkcs8', privBuf, { name:'ECDSA', namedCurve:'P-256' }, true, ['sign']);
-    return { publicKey, privateKey, pubRaw: pubBuf, privRaw: privBuf };
+    const publicKey  = await crypto.subtle.importKey('spki',  pubRaw,  { name:'Ed25519' }, true, ['verify']);
+    const privateKey = await crypto.subtle.importKey('pkcs8', privRaw, { name:'Ed25519' }, true, ['sign']);
+    return { publicKey, privateKey, pubRaw, privRaw };
   },
   async sign(privateKey, data) {
     const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-    return crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, privateKey, buf);
+    return crypto.subtle.sign('Ed25519', privateKey, buf);
   },
   async verify(publicKey, sig, data) {
     const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-    try { return await crypto.subtle.verify({ name:'ECDSA', hash:'SHA-256' }, publicKey, sig, buf); } catch { return false; }
+    try { return await crypto.subtle.verify('Ed25519', publicKey, sig, buf); } catch { return false; }
   },
   async importPublicKey(raw) {
-    return crypto.subtle.importKey('spki', raw, { name:'ECDSA', namedCurve:'P-256' }, true, ['verify']);
+    return crypto.subtle.importKey('spki', raw, { name:'Ed25519' }, true, ['verify']);
   },
   async sha256(data) {
     const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
@@ -2949,9 +2930,9 @@ async function loadOrCreateIdentity() {
     STATE.privateKey = id.privateKey;
     STATE.did        = id.did;
     STATE.pubKeyB64  = Crypto.ab2b64(id.pubRaw);
-    await DB.put('identity', Crypto.ab2b64(id.pubRaw),  'pubRaw');
-    await DB.put('identity', Crypto.ab2b64(id.privRaw), 'privRaw');
-    EventBus.emit('SYS', { msg:'New identity generated (ECDSA P-256)' });
+    await DB.put('identity', id.pubRaw,  'pubRaw');
+    await DB.put('identity', id.privRaw, 'privRaw');
+    EventBus.emit('SYS', { msg:'New identity generated (Ed25519)' });
   }
 
   STATE.handle  = handle  || `node-${STATE.did.slice(10,16)}`;
@@ -3074,8 +3055,7 @@ function updateClock() {
   const h = String(now.getHours()).padStart(2,'0');
   const m = String(now.getMinutes()).padStart(2,'0');
   const s = String(now.getSeconds()).padStart(2,'0');
-  const clkEl = document.getElementById('tbClock');
-  if (clkEl) clkEl.textContent = `${h}:${m}:${s}`;
+  document.getElementById('tbClock').textContent = `${h}:${m}:${s}`;
   STATE.uptime = Math.floor((Date.now() - startTime) / 1000);
   const ud = document.getElementById('uptimeDisplay');
   if (ud) {
@@ -3602,51 +3582,7 @@ function cycleFeedFilter() {
 }
 
 function searchTag(tag) { showToast(`Searching ${tag}...`, 'c'); }
-function attachToPost(type) {
-  const input = document.getElementById('postFileInput');
-  if (type === 'image') {
-    input.accept = 'image/*';
-  } else if (type === 'video') {
-    input.accept = 'video/*';
-  } else {
-    input.accept = '';
-  }
-  input.click();
-}
-
-function handlePostFileSelected(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  STATE._pendingPostFile = file;
-  showToast(`📎 Attached: ${file.name}`, 'g');
-  // Show attachment preview near the compose area
-  const area = document.getElementById('postAttachPreview');
-  if (area) {
-    area.textContent = `📎 ${file.name} (${(file.size/1024).toFixed(0)} KB)`;
-    area.style.display = 'block';
-  }
-  input.value = '';
-}
-
-let _uploadModalFile = null;
-
-function handleUploadModalFileSelected(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  _uploadModalFile = file;
-  const label = document.getElementById('uploadModalDropLabel');
-  if (label) label.innerHTML = `✅ <strong>${file.name}</strong> (${(file.size/1024).toFixed(0)} KB)`;
-  input.value = '';
-}
-
-async function handleUploadModalDrop(e) {
-  e.preventDefault();
-  const file = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (!file) return;
-  _uploadModalFile = file;
-  const label = document.getElementById('uploadModalDropLabel');
-  if (label) label.innerHTML = `✅ <strong>${file.name}</strong> (${(file.size/1024).toFixed(0)} KB)`;
-}
+function attachToPost(type) { showToast(`Attaching ${type}...`, 'c'); }
 
 /* ══════════════════════════════════════════════════
    HOME ACTIVITY FEED
@@ -3816,7 +3752,7 @@ function renderDAG() {
   if (!el) return;
   el.innerHTML = STATE.editors.commits.map(function(c,i) {
     const dotColor = i===0?'var(--cyan)':(c.verified===false?'var(--red)':i%2===0?'var(--violet)':'var(--green)');
-    const sigBadge = c.verified===true ? '<span title="ECDSA P-256 verified" style="color:var(--cyan);font-size:9px">sig</span>'
+    const sigBadge = c.verified===true ? '<span title="Ed25519 verified" style="color:var(--cyan);font-size:9px">sig</span>'
       : c.verified===false ? '<span title="Bad signature" style="color:var(--red);font-size:9px">!sig</span>' : '';
     const clkBadge = c.clock!==undefined ? '<span style="color:var(--text3);font-size:9px">t='+c.clock+'</span>' : '';
     const cidShort = c.cid ? c.cid.slice(0,12)+'...' : c.id;
@@ -4011,29 +3947,12 @@ function monetizeFile(id) {
 function openFile(id) { showToast('Opening file...', 'c'); }
 
 async function simulateUpload() {
-  let name, size, icon, buf;
-  if (_uploadModalFile) {
-    const file = _uploadModalFile;
-    name = file.name;
-    size = (file.size / 1024 / 1024).toFixed(1) + ' MB';
-    const ext = name.split('.').pop().toLowerCase();
-    const iconMap = { fig:'[fig]', json:'{}', mp3:'[mp3]', zip:'[zip]', md:'[md]', png:'[img]', jpg:'[img]', mp4:'[mp4]', pdf:'[pdf]' };
-    icon = iconMap[ext] || '[doc]';
-    buf = await file.arrayBuffer();
-    _uploadModalFile = null;
-    const label = document.getElementById('uploadModalDropLabel');
-    if (label) label.innerHTML = 'Drop files or <strong>browse</strong>';
-  } else {
-    const names = ['design.fig','data.json','audio.mp3','archive.zip','notebook.md'];
-    const icons = ['[fig]','{}','[mp3]','[zip]','[md]'];
-    const i = Math.floor(Math.random()*names.length);
-    name = names[i];
-    size = (Math.random()*50+0.5).toFixed(1)+' MB';
-    icon = icons[i];
-    buf = new TextEncoder().encode(name + size + Date.now());
-  }
-  const cid = await BlockStore.put(buf ? new Uint8Array(buf) : name+size+Date.now());
-  const nf = { id:'fl'+Date.now(), name, size, icon, cid, type:'upload' };
+  const names = ['design.fig','data.json','audio.mp3','archive.zip','notebook.md'];
+  const icons = ['[fig]','{}','[mp3]','[zip]','[md]'];
+  const i = Math.floor(Math.random()*names.length);
+  const size = (Math.random()*50+0.5).toFixed(1)+' MB';
+  const cid = await BlockStore.put(names[i]+size+Date.now());
+  const nf = { id:'fl'+Date.now(), name:names[i], size, icon:icons[i], cid, type:'upload' };
   STATE.files.push(nf);
   renderFilesGrid();
   closeModal('uploadModal');
@@ -4449,7 +4368,7 @@ const TERM_CMDS = {
     'Sandbox:     new Function + 50K ops / 3s limit',
     'SigPipeline: ' + SigPipeline.getLog().length + ' audit entries',
     'SharedState: ' + Object.keys(SharedState.snapshot()).length + ' CRDT keys',
-    'Crypto:      ECDSA P-256 + AES-256-GCM',
+    'Crypto:      Ed25519 + AES-256-GCM',
   ],
   whoami: () => [STATE.did, '@' + STATE.handle, 'ed25519:' + STATE.pubKeyB64.slice(0,32) + '...'],
   peers: () => STATE.peers.length
@@ -4768,7 +4687,7 @@ async function init() {
   await DB.init();
   EventBus.emit('SYS', { msg:'IndexedDB storage ready' });
 
-  // 2. Load or generate ECDSA P-256 identity
+  // 2. Load or generate Ed25519 identity
   await loadOrCreateIdentity();
   EventBus.emit('SYS', { msg:`DID: ${STATE.did.slice(0,24)}...` });
 
@@ -4840,7 +4759,7 @@ async function init() {
   setTimeout(() => showToast('Open another tab to connect peers', 'c'), 1400);
   setTimeout(() => showToast('Run button = real sandboxed execution', 'v'), 2600);
 
-  // 10. Editor initial DAG commit (real CID + ECDSA P-256 sig)
+  // 10. Editor initial DAG commit (real CID + Ed25519 sig)
   await editorCommit();
   document.getElementById('commitMsg').value = '';
   document.querySelector('#dagView .dag-node')?.click();
@@ -4853,7 +4772,7 @@ async function init() {
   appendTermLine(`Handle: @${STATE.handle}`, 'sys');
   appendTermLine(`Credits: ◈ ${STATE.credits}`, 'sys');
   appendTermLine('Mesh bus:    BroadcastChannel + WebRTC DataChannels', 'sys');
-  appendTermLine('DAG engine:  ECDSA P-256 signed commits -> IndexedDB', 'sys');
+  appendTermLine('DAG engine:  Ed25519 signed commits -> IndexedDB', 'sys');
   appendTermLine('BlockStore:  SHA-256 CID -> IndexedDB blocks store', 'sys');
   appendTermLine('Sandbox:     new Function() + op/time metering', 'sys');
   appendTermLine('SharedState: LWW-CRDT gossip across all peers', 'sys');
@@ -5523,7 +5442,7 @@ const AINode = (() => {
     const ts = Date.now();
     let sig = null;
     if (STATE.privateKey) {
-      const sigBuf = await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, STATE.privateKey, new TextEncoder().encode(JSON.stringify({ jobId, prompt, ts })));
+      const sigBuf = await crypto.subtle.sign('Ed25519', STATE.privateKey, new TextEncoder().encode(JSON.stringify({ jobId, prompt, ts })));
       sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
     }
     const job = { type: 'AI_JOB', jobId, prompt, model: model || activeModel, temperature, max_tokens, did: STATE.did, handle: STATE.handle, ts, sig };
@@ -5629,7 +5548,8 @@ h1{color:#b388ff;margin-bottom:4px;font-size:18px}
 const SESSION=${JSON.stringify({id:session.id,cid:session.cid,messages:hist,did:STATE?.did})};
 console.log('Sovereign AI Node Bundle loaded. Session:', SESSION.id, 'CID:', SESSION.cid);
 // To resume: POST this bundle\'s messages as context to any Ollama endpoint
-<\/script></body></html>`
+<\/script><script src="src/ipfsAdapter.js"></script>
+</body></html>`
     ], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -6001,5 +5921,6 @@ if (!document.querySelector('#ai-blink-style')) {
 }
 
 </script>
+<script src="src/ipfsAdapter.js"></script>
 </body>
 </html>
