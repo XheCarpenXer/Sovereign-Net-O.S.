@@ -1,5 +1,6 @@
 {
   "name": "sovereign-net-os",
+  "productName": "Sovereign Net OS",
   "version": "0.1.0",
   "description": "Sovereign Net OS — Decentralized Internet Node Desktop App",
   "main": "src/main.js",

@@ -66,6 +66,7 @@ class KernelPersist {
   restore() {
     let restored   = false;
     let walReplayed = 0;
+    this._restoreErrors = [];
 
     // ── 1. Load snapshot ────────────────────────────────────────────────────
     const snap = this._loadSnapshot();
@@ -76,6 +77,7 @@ class KernelPersist {
         console.log(`[kernel-persist] Restored snapshot at clock=${this.kernel.clock}`);
       } catch (err) {
         console.error("[kernel-persist] Snapshot restore failed:", err.message);
+        this._restoreErrors.push({ file: "snapshot", error: err.message });
         // Try backup
         const bak = this._loadFile(this.backFile);
         if (bak) {
@@ -85,6 +87,7 @@ class KernelPersist {
             console.log("[kernel-persist] Restored from backup snapshot");
           } catch (e2) {
             console.error("[kernel-persist] Backup restore also failed:", e2.message);
+            this._restoreErrors.push({ file: "snapshot.bak", error: e2.message });
           }
         }
       }
@@ -138,6 +141,29 @@ class KernelPersist {
   // INTERNALS
   // ──────────────────────────────────────────────────────────────────────────
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // HEALTH  — observable persist status for UI status panel
+  // ──────────────────────────────────────────────────────────────────────────
+
+  health() {
+    let walDepth = 0;
+    try {
+      if (this.walMode && fs.existsSync(this.walFile)) {
+        const raw = fs.readFileSync(this.walFile, "utf8");
+        walDepth  = raw.split("\n").filter(Boolean).length;
+      }
+    } catch (_) {}
+
+    return {
+      lastFlushMs:   this._lastFlushAt ?? null,   // epoch ms of last successful write
+      walEnabled:    this.walMode,
+      walDepth,                                   // events in current WAL segment
+      historyLength: this.kernel.history.length,
+      clock:         this.kernel.clock,
+      restoreErrors: this._restoreErrors ?? [],
+    };
+  }
+
   _attachListener() {
     this.kernel.on((evt) => {
       // Skip scheduler-only events that don't need to persist immediately
@@ -168,8 +194,8 @@ class KernelPersist {
         fs.copyFileSync(this.snapFile, this.backFile);
       }
       fs.renameSync(tmp, this.snapFile);
+      this._lastFlushAt = Date.now();
     } catch (err) {
-      console.error("[kernel-persist] Write failed:", err.message);
     } finally {
       this._writing = false;
     }
@@ -240,12 +266,27 @@ class KernelPersist {
   }
 
   _rotateWal() {
-    // Flush current state to snapshot, then truncate WAL
+    // Flush current state to snapshot, truncate WAL, then trim history.
+    // Without the trim step every snapshot includes the full event log from
+    // genesis — on a long-lived node this grows without bound.
     this._writeSnapshot().then(() => {
       try {
         fs.writeFileSync(this.walFile, "", "utf8"); // truncate
         console.log("[kernel-persist] WAL rotated into snapshot");
       } catch (_) {}
+
+      // Trim the in-memory history log: keep only events after the checkpoint
+      // horizon. The snapshot written above encodes full state, so older entries
+      // are only needed to re-replay events that arrived *after* the checkpoint.
+      const { KernelReplayer } = require("./kernel-replay");
+      const replayer  = new KernelReplayer();
+      const trimClock = Math.max(0, this.kernel.clock - KernelPersist.CHECKPOINT_DEPTH);
+      const trimmed   = replayer.trim(this.kernel.history, trimClock);
+      this.kernel.history = trimmed;
+      console.log(
+        `[kernel-persist] History trimmed to ${trimmed.length} events ` +
+        `(horizon clock=${trimClock})`
+      );
     });
   }
 }
@@ -270,5 +311,8 @@ function attachPersistence(kernel, app, { wal = false } = {}) {
 
   return persist;
 }
+
+/** How many clock ticks to keep in the live history log after each WAL rotation. */
+KernelPersist.CHECKPOINT_DEPTH = 500;
 
 module.exports = { KernelPersist, attachPersistence };

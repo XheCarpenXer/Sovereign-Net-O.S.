@@ -78,14 +78,21 @@ class KernelSync {
     // Broadcast new local events on interval
     setInterval(() => this._broadcastNewEvents(), broadcastMs);
 
-    // Poll pubsub for incoming events
-    setInterval(() => this._pollPubsub(), pollMs);
+    // Persistent streaming subscription replaces the old polling approach.
+    // pollMs is accepted for API compatibility but no longer drives receive.
+    void pollMs;
+    this._subActive     = false;
+    this._subRetryDelay = 1_000;
+    this._subReq        = null;
+    this._startSubscription();
 
     console.log(`[kernel-sync] Started on topic: ${this.topic}`);
   }
 
   stop() {
     clearInterval(this._pollTimer);
+    this._subActive = false;
+    if (this._subReq) { try { this._subReq.destroy(); } catch (_) {} }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -125,18 +132,101 @@ class KernelSync {
   // POLL  — receive and apply peer events
   // ──────────────────────────────────────────────────────────────────────────
 
-  async _pollPubsub() {
-    try {
-      const res = await this.ipfsPost(
-        `http://127.0.0.1:5001/api/v0/pubsub/ls`
-      );
-      // Full streaming subscription isn't practical in this polling model.
-      // A production implementation would use a WebSocket proxy or
-      // a long-lived HTTP stream. This polls the topic's message buffer.
-      // For now: just advertise presence by broadcasting; inbound messages
-      // are received through the snos:peerMessage IPC channel from the renderer.
-    } catch (_) {}
+  // ──────────────────────────────────────────────────────────────────────────
+  // SUBSCRIBE  — maintain a long-lived NDJSON stream from Kubo pubsub/sub
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Open (or re-open) a streaming subscription to the kernel topic.
+   * Kubo's pubsub/sub endpoint returns one base64-encoded JSON object per line
+   * (NDJSON). We parse each line and hand it to receive().
+   *
+   * On error or EOF we schedule a reconnect with exponential back-off, then
+   * burst PULL_REQUESTs to any peers whose last-seen clock is stale by more
+   * than PULL_STALE_THRESHOLD ticks.
+   */
+  _startSubscription() {
+    if (this._subActive) return;
+    this._subActive     = true;
+    this._subRetryDelay = 1_000; // reset on explicit start
+    this._connectStream();
   }
+
+  _connectStream() {
+    if (!this._subActive) return;
+
+    const http = require("http");
+    const topicEncoded = encodeURIComponent(this.topic);
+    const options = {
+      hostname: "127.0.0.1",
+      port:     5001,
+      path:     `/api/v0/pubsub/sub?arg=${topicEncoded}&discover=true`,
+      method:   "POST",
+    };
+
+    const req = http.request(options, (res) => {
+      this._subRetryDelay = 1_000; // successful connection → reset back-off
+      let buf = "";
+
+      res.on("data", (chunk) => {
+        buf += chunk.toString("utf8");
+        const lines = buf.split("\n");
+        buf = lines.pop(); // keep any incomplete trailing line
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            // Kubo wraps each message as { from, data, seqno, topicIDs }
+            // where `data` is base64-encoded payload
+            const msg = JSON.parse(line);
+            if (msg?.data) {
+              const envelope = this.decode(msg.data);
+              if (envelope) {
+                if (envelope.type === "PULL_REQUEST") {
+                  this.handlePullRequest(envelope).catch(() => {});
+                } else {
+                  this.receive(envelope);
+                }
+              }
+            }
+          } catch (_) { /* malformed line — skip */ }
+        }
+      });
+
+      res.on("end",   () => this._scheduleReconnect("stream ended"));
+      res.on("error", () => this._scheduleReconnect("stream error"));
+    });
+
+    req.on("error", () => this._scheduleReconnect("connection failed"));
+    req.setTimeout(0); // no timeout — this is intentionally long-lived
+    req.end();
+
+    this._subReq = req;
+  }
+
+  _scheduleReconnect(reason) {
+    if (!this._subActive) return;
+    console.warn(`[kernel-sync] Pubsub stream disconnected (${reason}), reconnecting in ${this._subRetryDelay}ms`);
+    setTimeout(() => {
+      this._burstPullRequests(); // catch up with any peers that advanced while we were offline
+      this._connectStream();
+    }, this._subRetryDelay);
+    // Exponential back-off, capped at 30s
+    this._subRetryDelay = Math.min(this._subRetryDelay * 2, 30_000);
+  }
+
+  /** Fire PULL_REQUESTs to peers whose last-seen clock is stale. */
+  async _burstPullRequests() {
+    const PULL_STALE_THRESHOLD = 10;
+    for (const [peerId, theirClock] of this._peerClocks) {
+      if (this.kernel.clock - theirClock > PULL_STALE_THRESHOLD) {
+        await this.requestHistory(peerId, theirClock).catch(() => {});
+      }
+    }
+  }
+
+  // _pollPubsub is kept as a no-op so existing callers don't crash,
+  // but all real work is done by the streaming subscriber above.
+  async _pollPubsub() {}
 
   // ──────────────────────────────────────────────────────────────────────────
   // RECEIVE  — process an inbound envelope from a peer
@@ -155,16 +245,25 @@ class KernelSync {
       return { ok: false, error: "Ignoring own message" }; // don't re-apply own events
     }
 
-    // Dedup
-    if (this._seenEnvelopes.has(envelope.id)) {
+    // Dedup — LRU eviction: once we exceed the cap we remove the oldest entries.
+    // Using a Map instead of a Set gives us O(1) insertion-order iteration.
+    if (!this._seenEnvelopesMap) {
+      // Lazy-initialise the ordered map and retire the old Set if already seeded.
+      this._seenEnvelopesMap = new Map();
+      for (const id of this._seenEnvelopes) this._seenEnvelopesMap.set(id, true);
+    }
+    if (this._seenEnvelopesMap.has(envelope.id)) {
       return { ok: false, error: "Duplicate envelope" };
     }
-    this._seenEnvelopes.add(envelope.id);
-    if (this._seenEnvelopes.size > 1000) {
-      // Trim oldest entries
-      const iter = this._seenEnvelopes.values();
-      for (let i = 0; i < 200; i++) this._seenEnvelopes.delete(iter.next().value);
+    this._seenEnvelopesMap.set(envelope.id, true);
+    const MAX_SEEN = 1000;
+    if (this._seenEnvelopesMap.size > MAX_SEEN) {
+      // Delete the oldest 200 entries in a single pass
+      const iter = this._seenEnvelopesMap.keys();
+      for (let i = 0; i < 200; i++) this._seenEnvelopesMap.delete(iter.next().value);
     }
+    // Keep the legacy Set in sync so status() and other callers still work
+    this._seenEnvelopes = new Set(this._seenEnvelopesMap.keys());
 
     // Check if peer is banned
     const rep = this.kernel.query("PEER_REP", envelope.nodeId);

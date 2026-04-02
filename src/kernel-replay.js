@@ -242,7 +242,12 @@ class KernelReplayer {
 // Expose replay tools through kernel:replay IPC channel
 // ─────────────────────────────────────────────────────────────────────────────
 
-function attachReplayBridge(kernel, ipcMain) {
+/**
+ * @param {DispatchKernel} kernel
+ * @param {Electron.IpcMain} ipcMain
+ * @param {Electron.BrowserWindow|null} [mainWindow]  — optional; enables push divergence alerts
+ */
+function attachReplayBridge(kernel, ipcMain, mainWindow = null) {
   const replayer = new KernelReplayer();
 
   // Full replay from stored history
@@ -276,6 +281,61 @@ function attachReplayBridge(kernel, ipcMain) {
   ipcMain.handle("kernel:verify", async (_event, { stateKey, expectedValue, atClock }) => {
     try {
       return { ok: true, result: replayer.verify(kernel.replay(), stateKey, expectedValue, atClock) };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // ── Divergence: compare this node's history against a peer's log ──────────
+  // The renderer calls this after receiving a peer's event log via sync.
+  // If divergence is detected the result is returned AND pushed as a
+  // kernel:divergence IPC event so any open UI panel can surface a banner.
+  ipcMain.handle("kernel:compare", async (_event, { peerHistory, peerId }) => {
+    try {
+      const localHistory = kernel.replay();
+      const result = replayer.compare(localHistory, peerHistory);
+
+      if (result.diverged) {
+        console.warn(
+          `[kernel-replay] Divergence detected vs peer ${peerId ?? "unknown"}: ` +
+          `${result.diffs.length} diff(s)`
+        );
+        // Push to renderer so the UI can display a banner
+        mainWindow?.webContents?.send("kernel:divergence", {
+          peerId:    peerId ?? "unknown",
+          diffs:     result.diffs,
+          clockA:    result.clockA,
+          clockB:    result.clockB,
+          detectedAt: Date.now(),
+        });
+      }
+
+      return { ok: true, result };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // ── Self-consistency check: replay current history and detect internal drift
+  // Called periodically (or on demand). Pushes kernel:divergence if the
+  // replayed snapshot disagrees with the live kernel state.
+  ipcMain.handle("kernel:selfcheck", async () => {
+    try {
+      const history  = kernel.replay();
+      const { kernel: replayedK } = replayer.replay(history);
+      const result = replayer.compare(history, replayedK.replay());
+
+      if (result.diverged) {
+        mainWindow?.webContents?.send("kernel:divergence", {
+          peerId:    "self",
+          diffs:     result.diffs,
+          clockA:    result.clockA,
+          clockB:    result.clockB,
+          detectedAt: Date.now(),
+        });
+      }
+
+      return { ok: true, diverged: result.diverged, diffs: result.diffs };
     } catch (err) {
       return { ok: false, error: err.message };
     }

@@ -327,6 +327,15 @@ ipcMain.handle('ipfs:api', async (_event, { path: apiPath, method = 'POST', form
   });
 });
 
+// ── App identity — must be set before app.whenReady() ─────────────────────
+// Electron derives the userData path from app.getName(). If this isn't set
+// explicitly, it falls back to package.json `name`, which may be sanitised
+// differently per platform (hyphens stripped, casing changed) or return
+// undefined on some Electron versions before the app is fully ready.
+// Setting app.name here guarantees app.getPath('userData') is stable and
+// never contains "undefined" as a path component.
+app.name = 'Sovereign Net OS';
+
 // ── IPC bridge: all state mutations via kernel.dispatch() ─────────────────
 // createIpcBridge wires rep:*, bw:*, kernel:dispatch, kernel:query, kernel:snapshot
 // Effects (ban push, bw change push) are registered inside the bridge.
@@ -334,8 +343,31 @@ ipcMain.handle('ipfs:api', async (_event, { path: apiPath, method = 'POST', form
 
 // ── App lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
-  // ── 1. Restore kernel state from disk ─────────────────────────────────────
-  attachPersistence(kernel, app, { wal: false });
+  // ── 0. Security: register sig validators before any dispatch ──────────────
+  //    Peer-origin events MUST carry a `sig` field. We reject them immediately
+  //    if they don't, keeping the safe default even before key infrastructure
+  //    is in place. Replace the placeholder verifier below with real
+  //    Ed25519/libp2p-crypto verification once key exchange is wired up.
+  kernel.sig.use((event) => {
+    if (typeof event.origin === "string" && event.origin.startsWith("peer:")) {
+      if (!event.sig) {
+        const { KernelError } = require("./kernel");
+        throw new KernelError("UNSIGNED_PEER_EVENT",
+          `Peer event from ${event.origin} rejected: missing sig field`);
+      }
+      // TODO: verify event.sig against the sender's known public key.
+      // Until key infrastructure is in place this check ensures the field
+      // exists (structural gate). Swap in:
+      //   const senderId = event.origin.slice(5); // "peer:<nodeId>"
+      //   const pubKey   = kernel.query("PEER_PUBKEY", senderId);
+      //   if (!pubKey) throw new KernelError("UNKNOWN_PEER", `No public key for ${senderId}`);
+      //   const ok = crypto.verify(event.sig, canonicalBytes(event), pubKey);
+      //   if (!ok) throw new KernelError("BAD_SIG", `Invalid signature from ${senderId}`);
+    }
+  });
+
+  // ── 1. Restore kernel state from disk (WAL enabled for crash safety) ──────
+  attachPersistence(kernel, app, { wal: true });
 
   // ── 2. Create window + tray ────────────────────────────────────────────────
   createWindow();
@@ -345,8 +377,17 @@ app.whenReady().then(async () => {
   //    (createIpcBridge needs mainWindow for effect→renderer pushes)
   createIpcBridge(kernel, ipcMain, mainWindow);
 
-  // ── 4. Wire replay IPC ────────────────────────────────────────────────────
-  attachReplayBridge(kernel, ipcMain);
+  // ── 4. Wire replay IPC (pass mainWindow so divergence pushes reach the UI) ─
+  attachReplayBridge(kernel, ipcMain, mainWindow);
+
+  // ── 4a. Persist health IPC — status panel reads last flush, WAL depth, etc ─
+  ipcMain.handle("kernel:persist:health", async () => {
+    try {
+      return { ok: true, result: kernel._persist?.health() ?? null };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
 
   // ── 5. Kubo side-effects (disconnect banned peers, apply BW limits) ────────
   kernel.effect('PEER_REP_EVENT', (result) => {

@@ -120,6 +120,7 @@ class DispatchKernel extends AbsoluteKernel {
     this._effects   = new Map();  // eventType → [effect fn, ...]
     this._listeners = [];         // all-dispatch listeners
     this.sig        = new SigPipeline();
+    this._dagResolvers = new Map(); // dagNodeType → (baseData, headData) → mergedData
 
     // ── Internal state stores (not directly readable) ──────────────────────
     this._dag        = { nodes: new Map(), edges: new Map() };   // DAG
@@ -147,12 +148,15 @@ class DispatchKernel extends AbsoluteKernel {
       throw new KernelError("INVALID_EVENT", "event.type must be a string");
     }
 
+    // Build evt without id first so _uid() can hash the canonical fields
+    const payload = event.payload ?? {};
+    const origin  = event.origin  ?? "internal";
     const evt = {
       type:    event.type,
-      payload: event.payload ?? {},
-      sig:     event.sig     ?? null,
-      origin:  event.origin  ?? "internal",
-      id:      this._uid(),
+      payload,
+      sig:     event.sig ?? null,
+      origin,
+      id:      this._uid(event.type, payload, origin),
     };
 
     // ── 1. Validate ─────────────────────────────────────────────────────────
@@ -218,6 +222,22 @@ class DispatchKernel extends AbsoluteKernel {
   override(type, fn, opts = {}) {
     this._handlers.delete(type);
     return this.register(type, fn, opts);
+  }
+
+  /**
+   * Register an explicit conflict resolver for DAG nodes of a given type.
+   * resolver(baseData, headData) → mergedData
+   *
+   * Without a registered resolver, DAG_MERGE falls back to a last-write-wins
+   * spread which is non-deterministic across peers. Register one per node type
+   * to guarantee the same merge result on every node.
+   *
+   * @param {string}   nodeType  — value of node.data.type (or any discriminator key)
+   * @param {function} resolver
+   */
+  registerDagResolver(nodeType, resolver) {
+    this._dagResolvers.set(nodeType, resolver);
+    return this;
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -363,7 +383,32 @@ class DispatchKernel extends AbsoluteKernel {
       const baseNode = this._dag.nodes.get(base);
       const headNode = this._dag.nodes.get(head);
       const mergedId = `merge:${base}:${head}`;
-      const mergedData = resolver ? resolver(baseNode.data, headNode.data) : { ...baseNode.data, ...headNode.data };
+
+      // Prefer: (1) caller-supplied resolver, (2) registered resolver by node type,
+      // (3) deterministic last-writer-wins keyed on clock (higher clock wins per key).
+      const nodeType = baseNode.data?.type ?? headNode.data?.type;
+      const registeredResolver = nodeType ? this._dagResolvers.get(nodeType) : undefined;
+      let mergedData;
+      if (resolver) {
+        mergedData = resolver(baseNode.data, headNode.data);
+      } else if (registeredResolver) {
+        mergedData = registeredResolver(baseNode.data, headNode.data);
+      } else {
+        // Deterministic fallback: merge key-by-key, prefer the entry from the
+        // node with the higher ts (clock tick). Ties broken by node id string
+        // ordering so the result is identical on every peer.
+        const allKeys = new Set([...Object.keys(baseNode.data ?? {}), ...Object.keys(headNode.data ?? {})]);
+        mergedData = {};
+        for (const key of allKeys) {
+          const pickHead =
+            headNode.ts > baseNode.ts ||
+            (headNode.ts === baseNode.ts && headNode.id > baseNode.id);
+          mergedData[key] = pickHead
+            ? (headNode.data[key] ?? baseNode.data[key])
+            : (baseNode.data[key] ?? headNode.data[key]);
+        }
+      }
+
       this._dag.nodes.set(mergedId, { id: mergedId, data: mergedData, parents: [base, head], ts: this.clock });
       if (!this._dag.edges.has(base)) this._dag.edges.set(base, new Set());
       if (!this._dag.edges.has(head)) this._dag.edges.set(head, new Set());
@@ -395,6 +440,62 @@ class DispatchKernel extends AbsoluteKernel {
       this._blocks.delete(cid);
       return { cid };
     });
+
+    // ── DAG Garbage Collection ───────────────────────────────────────────────
+    // Mark-and-sweep: walk the DAG forward from every pinned block's node,
+    // then orphan (delete) nodes with no reachable path from a pinned root.
+    // Pinned blocks act as GC roots — anything not reachable from them is
+    // considered abandoned history and can be pruned.
+
+    this.register("DAG_GC", () => {
+      // Build set of pinned CIDs acting as roots
+      const pinnedCids = new Set(
+        Array.from(this._blocks.values())
+          .filter(b => b.pinned)
+          .map(b => b.cid)
+      );
+
+      // Also treat any node whose id matches a pinned CID as a root
+      const roots = new Set();
+      for (const [id] of this._dag.nodes) {
+        if (pinnedCids.has(id)) roots.add(id);
+      }
+
+      // If there are no pinned roots, skip GC rather than wiping the entire DAG
+      if (roots.size === 0) return { collected: 0, retained: this._dag.nodes.size };
+
+      // BFS forward through edges to find all reachable nodes
+      const reachable = new Set(roots);
+      const queue = [...roots];
+      while (queue.length) {
+        const nodeId = queue.shift();
+        for (const child of (this._dag.edges.get(nodeId) ?? [])) {
+          if (!reachable.has(child)) {
+            reachable.add(child);
+            queue.push(child);
+          }
+        }
+      }
+
+      // Sweep: remove unreachable nodes and their outbound edge entries
+      let collected = 0;
+      for (const [id] of this._dag.nodes) {
+        if (!reachable.has(id)) {
+          this._dag.nodes.delete(id);
+          this._dag.edges.delete(id);
+          collected++;
+        }
+      }
+      // Also prune stale edge references pointing to deleted nodes
+      for (const [src, targets] of this._dag.edges) {
+        for (const t of targets) {
+          if (!this._dag.nodes.has(t)) targets.delete(t);
+        }
+        if (targets.size === 0) this._dag.edges.delete(src);
+      }
+
+      return { collected, retained: this._dag.nodes.size };
+    }, { cost: 5 });
 
     // ── Peer Reputation ──────────────────────────────────────────────────────
 
@@ -462,8 +563,29 @@ class DispatchKernel extends AbsoluteKernel {
   // UTILITIES
   // ──────────────────────────────────────────────────────────────────────────
 
-  _uid() {
-    return `${this.clock}-${(this.random() * 0xFFFFFF | 0).toString(16)}`;
+  /**
+   * Content-addressed event ID — stable hash of {type, payload, origin, clock}.
+   * Two nodes that receive the same logical event will produce the same id
+   * regardless of dispatch order, so KernelReplayer.merge() tie-breaks are
+   * deterministic across all peers.
+   *
+   * Falls back to the old random id only if called outside a dispatch context
+   * (i.e. before evt data is available) — that path should never be hit in
+   * normal operation.
+   */
+  _uid(type, payload, origin) {
+    if (type === undefined) {
+      // Legacy fallback — should not occur during dispatch
+      return `${this.clock}-${(this.random() * 0xFFFFFF | 0).toString(16)}`;
+    }
+    const raw = `${this.clock}:${type}:${origin ?? "internal"}:${JSON.stringify(payload ?? {})}`;
+    // FNV-1a 32-bit over the UTF-8 bytes — fast, zero-dependency, deterministic
+    let h = 0x811c9dc5;
+    for (let i = 0; i < raw.length; i++) {
+      h ^= raw.charCodeAt(i);
+      h = (h * 0x01000193) >>> 0;
+    }
+    return `${this.clock}-${h.toString(16).padStart(8, "0")}`;
   }
 }
 
