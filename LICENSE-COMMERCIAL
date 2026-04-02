@@ -1,0 +1,377 @@
+SOVEREIGN OS COMMERCIAL LICENSE
+Version 1.0 — March 2026
+
+Copyright (c) 2026 Sovereign OS Contributors ("Licensor")
+
+===============================================================================
+PREAMBLE
+===============================================================================
+
+This Commercial License governs all use of the Sovereign OS software ("the
+Software") by government entities, commercial enterprises, and any other
+organization or individual whose use falls outside the scope of the Sovereign
+OS Community License (LICENSE-COMMUNITY).
+
+By obtaining, downloading, installing, deploying, or using the Software under
+this Commercial License, the Licensee agrees to all terms set forth herein.
+
+This license is a legal agreement between the Licensor and the organization or
+individual named in the Order or Agreement associated with this license
+("Licensee").
+
+===============================================================================
+PART I — DEFINITIONS
+===============================================================================
+
+"Software" means the Sovereign OS source code, compiled files, documentation,
+configuration files, and any accompanying materials provided by the Licensor.
+
+"Derivative Work" means any modification, adaptation, translation, port,
+enhancement, or work based on or incorporating the Software.
+
+"Deployment" means any installation, hosting, serving, or operation of the
+Software or a Derivative Work in a production, staging, or testing environment
+accessible to end users.
+
+"Government Entity" means any federal, state, provincial, local, municipal, or
+supranational government body, agency, department, ministry, bureau, office,
+court, legislature, military branch, intelligence service, law enforcement body,
+or publicly funded institution, anywhere in the world.
+
+"Commercial Entity" means any for-profit corporation, limited liability company,
+partnership, sole proprietorship, consultancy, cooperative, or other commercial
+organization.
+
+"SaaS Deployment" means making the Software or a Derivative Work available to
+third parties as a hosted service, whether for payment or free of charge.
+
+"Internal Use" means use of the Software solely within the Licensee's own
+organization and not made available, distributed, or offered to third parties.
+
+===============================================================================
+PART II — GRANT OF COMMERCIAL LICENSE
+===============================================================================
+
+Subject to payment of the applicable license fee and compliance with all terms
+of this License, the Licensor grants the Licensee a non-exclusive,
+non-transferable, worldwide license to:
+
+  2.1  Install, copy, and use the Software for Internal Use within the
+       Licensee's organization, including by the Licensee's employees,
+       contractors, and agents acting on the Licensee's behalf.
+
+  2.2  Modify the Software and create Derivative Works for the Licensee's
+       own Internal Use, provided that all Derivative Works are subject to
+       the terms of this License.
+
+  2.3  Integrate the Software or Derivative Works into the Licensee's own
+       proprietary products and services, subject to the tier provisions
+       of Part III.
+
+  2.4  Deploy the Software as part of the Licensee's government digital
+       infrastructure, enterprise systems, or distributed network projects,
+       subject to the tier provisions of Part III.
+
+This license does NOT include the right to sublicense the Software to third
+parties or to re-sell the Software as a standalone product.
+
+===============================================================================
+PART III — LICENSE TIERS
+===============================================================================
+
+The following tiers define the scope of permitted use. The Licensee must obtain
+the tier appropriate for their intended use. Use beyond the scope of the
+Licensee's current tier requires upgrade to a higher tier.
+
+────────────────────────────────────────────────────────────────────────────────
+TIER 1 — ENTERPRISE INTERNAL (Commercial Entities)
+────────────────────────────────────────────────────────────────────────────────
+Permitted for: For-profit organizations using the Software for Internal Use only.
+
+Includes:
+  - Unlimited internal users and deployments
+  - Private Derivative Works for internal use
+  - Access to official patches and updates for the licensed version
+  - Community support channel access
+
+Does NOT include:
+  - SaaS or hosted service deployment
+  - Distribution to customers, partners, or the public
+  - Government use
+
+────────────────────────────────────────────────────────────────────────────────
+TIER 2 — ENTERPRISE DISTRIBUTION (Commercial Entities)
+────────────────────────────────────────────────────────────────────────────────
+Permitted for: For-profit organizations that embed, distribute, or offer the
+Software as part of a product or service to third parties, including SaaS.
+
+Includes all of Tier 1, plus:
+  - SaaS and hosted platform deployment
+  - Embedding the Software in commercial products distributed to customers
+  - White-labeling with Licensor attribution retained in documentation
+
+Does NOT include:
+  - Government use
+  - Re-sale of the Software as a standalone product
+
+────────────────────────────────────────────────────────────────────────────────
+TIER 3 — GOVERNMENT & PUBLIC SECTOR
+────────────────────────────────────────────────────────────────────────────────
+Permitted for: Government Entities at any level (federal, state, local,
+municipal, supranational), publicly funded research institutions, and
+government contractors using the Software solely in performance of a
+government contract.
+
+Includes all of Tier 2, plus:
+  - Deployment within classified or restricted government networks
+  - Integration with e-government, public records, identity, and civic
+    infrastructure systems
+  - Use by government contractors solely in performance of their government
+    contract (contractor must identify the sponsoring Government Entity)
+
+Additional obligations for Government Entities (Tier 3):
+  - The Licensee must designate a technical point of contact responsible
+    for security incident reporting.
+  - Any security vulnerability discovered in the Software must be reported
+    to the Licensor within 72 hours of discovery.
+  - Deployment for use in autonomous weapons systems, lethal autonomous
+    systems, or mass surveillance of civilian populations without
+    individualized suspicion is expressly prohibited regardless of tier.
+  - Deployment for use in systems that make automated decisions affecting
+    individual rights (benefits, criminal sentencing, immigration status)
+    without human review and override capability is prohibited.
+
+────────────────────────────────────────────────────────────────────────────────
+TIER 4 — OEM / RESELLER
+────────────────────────────────────────────────────────────────────────────────
+Permitted for: Organizations that re-sell, license, or redistribute the
+Software or a Derivative Work as a standalone product or SDK to other
+commercial or government customers.
+
+Requires a separate written OEM Agreement with the Licensor.
+Contact the Licensor to obtain an OEM Agreement.
+
+===============================================================================
+PART IV — RESTRICTIONS APPLICABLE TO ALL TIERS
+===============================================================================
+
+Regardless of tier, the following restrictions apply to all Commercial Licensees:
+
+  4.1  The Licensee must retain all copyright notices, license headers, and
+       attribution statements in all copies and Derivative Works of the
+       Software.
+
+  4.2  The Licensee may not use the Sovereign OS name, logo, or marks to
+       endorse or promote Derivative Works or products without prior written
+       consent of the Licensor.
+
+  4.3  The Licensee may not use the Software in connection with:
+         (a) Systems designed to deceive individuals without their informed
+             consent, including deepfakes, synthetic identity fraud, or
+             manipulation at scale;
+         (b) Autonomous lethal weapons systems;
+         (c) Mass surveillance of civilian populations without individualized
+             reasonable suspicion and appropriate judicial or regulatory
+             oversight;
+         (d) Any application that violates applicable human rights law or
+             the Sovereign OS Ethics Engine's core constraints
+             (Non-Deception, Non-Harm, Privacy, Autonomy).
+
+  4.4  The Licensee may not reverse-engineer the Licensor's proprietary
+       commercial extensions (if any) beyond what is permitted by applicable
+       law.
+
+  4.5  The Licensee may not sublicense this Commercial License to any third
+       party without the express written consent of the Licensor. Government
+       contractors operating under Tier 3 may permit their employees and
+       subcontractors to use the Software solely in performance of the
+       relevant government contract.
+
+===============================================================================
+PART V — INTELLECTUAL PROPERTY
+===============================================================================
+
+  5.1  The Licensor retains all right, title, and interest in and to the
+       Software, including all intellectual property rights therein.
+
+  5.2  The Licensee retains all right, title, and interest in any original
+       code or content it creates that is separate from and does not
+       incorporate the Software. Derivative Works that incorporate the Software
+       are subject to this License with respect to the incorporated portions.
+
+  5.3  The Licensee grants the Licensor a perpetual, royalty-free, worldwide
+       license to use, reproduce, and incorporate into the Software any feedback,
+       bug reports, or suggested improvements provided by the Licensee.
+
+===============================================================================
+PART VI — FEES AND PAYMENT
+===============================================================================
+
+  6.1  License fees are as agreed between the Licensor and Licensee in a
+       separate Order Form or written agreement.
+
+  6.2  All fees are non-refundable unless otherwise expressly agreed in writing.
+
+  6.3  Failure to pay fees when due may result in suspension or termination
+       of this License at the Licensor's discretion, upon 30 days written notice
+       to the Licensee.
+
+===============================================================================
+PART VII — SUPPORT AND UPDATES
+===============================================================================
+
+  7.1  Commercial Licensees receive access to official security patches and
+       bug fixes for the licensed major version for a period of 24 months
+       from the license effective date, unless otherwise agreed.
+
+  7.2  Major version upgrades may require a separate license fee.
+
+  7.3  Support terms (response times, channels, SLAs) are as specified in the
+       applicable Order Form or Support Agreement.
+
+===============================================================================
+PART VIII — AUDIT RIGHTS
+===============================================================================
+
+The Licensor reserves the right, upon 30 days written notice and no more than
+once per 12-month period, to audit the Licensee's use of the Software to
+verify compliance with this License. Any such audit will be conducted during
+normal business hours and at the Licensor's expense, unless the audit reveals
+material non-compliance, in which case the Licensee shall bear reasonable
+audit costs.
+
+===============================================================================
+PART IX — DISCLAIMER OF WARRANTIES
+===============================================================================
+
+EXCEPT AS EXPRESSLY SET FORTH IN A SEPARATE WRITTEN SUPPORT AGREEMENT, THE
+SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, SECURITY, ACCURACY, RELIABILITY, OR NON-INFRINGEMENT.
+
+THE LICENSOR EXPRESSLY DISCLAIMS ANY WARRANTY THAT THE SOFTWARE IS FREE FROM
+SECURITY VULNERABILITIES. THE CRYPTOGRAPHIC AND NETWORKING COMPONENTS INCLUDE
+PROTOTYPE AND SIMULATION IMPLEMENTATIONS. GOVERNMENT AND ENTERPRISE LICENSEES
+ARE STRONGLY ADVISED TO CONDUCT INDEPENDENT SECURITY AUDITS BEFORE PRODUCTION
+DEPLOYMENT IN HIGH-ASSURANCE ENVIRONMENTS.
+
+THE FHE (FULLY HOMOMORPHIC ENCRYPTION) MODULE IS A RESEARCH SIMULATION AND
+DOES NOT PROVIDE PRODUCTION-GRADE CRYPTOGRAPHIC GUARANTEES. DO NOT USE IT TO
+PROTECT CLASSIFIED OR SENSITIVE DATA WITHOUT INDEPENDENT CRYPTOGRAPHIC REVIEW.
+
+===============================================================================
+PART X — LIMITATION OF LIABILITY
+===============================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+LICENSOR OR ITS CONTRIBUTORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO
+LOSS OF DATA, LOSS OF REVENUE, LOSS OF DIGITAL ASSETS, LOSS OF GOVERNMENT
+RECORDS, OR BUSINESS INTERRUPTION) ARISING OUT OF OR IN CONNECTION WITH THIS
+LICENSE OR THE USE OF THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+THE LICENSOR'S TOTAL CUMULATIVE LIABILITY UNDER THIS LICENSE SHALL NOT EXCEED
+THE TOTAL LICENSE FEES PAID BY THE LICENSEE IN THE TWELVE (12) MONTHS
+PRECEDING THE CLAIM.
+
+NOTHING IN THIS LICENSE LIMITS LIABILITY THAT CANNOT BE LIMITED UNDER
+APPLICABLE LAW, INCLUDING FRAUD OR WILLFUL MISCONDUCT.
+
+===============================================================================
+PART XI — TERM AND TERMINATION
+===============================================================================
+
+  11.1  This License commences on the effective date specified in the applicable
+        Order Form and continues for the term specified therein, unless earlier
+        terminated.
+
+  11.2  Either party may terminate this License immediately upon written notice
+        if the other party commits a material breach of this License and fails
+        to cure such breach within 30 days of receiving written notice of the
+        breach.
+
+  11.3  The Licensor may terminate this License immediately, without cure period,
+        if the Licensee:
+          (a) Uses the Software in violation of Section 4.3 (prohibited uses);
+          (b) Becomes insolvent, files for bankruptcy, or is subject to
+              receivership;
+          (c) Violates any applicable export control law in connection with
+              the Software.
+
+  11.4  Upon termination, the Licensee must immediately cease all use and
+        Deployment of the Software and destroy or return all copies. Sections
+        V, IX, X, XII, and XIII survive termination.
+
+===============================================================================
+PART XII — EXPORT COMPLIANCE
+===============================================================================
+
+The Software may be subject to export control laws and regulations. The
+Licensee is solely responsible for compliance with all applicable export,
+re-export, and import laws and regulations, including but not limited to
+the Export Administration Regulations (EAR) and applicable sanctions programs.
+The Licensee represents that it is not on any government denied-party list.
+
+===============================================================================
+PART XIII — GOVERNING LAW AND DISPUTE RESOLUTION
+===============================================================================
+
+This License is governed by and construed in accordance with the laws of the
+jurisdiction specified in the applicable Order Form, without regard to
+conflict-of-law principles.
+
+Any dispute, claim, or controversy arising out of or relating to this License
+shall be resolved by binding arbitration under the rules of a mutually agreed
+arbitration body. Judgment on any arbitration award may be entered in any
+court of competent jurisdiction. The prevailing party shall be entitled to
+recover reasonable attorneys' fees and costs.
+
+Notwithstanding the above, either party may seek injunctive or other equitable
+relief in any court of competent jurisdiction to prevent irreparable harm.
+
+===============================================================================
+PART XIV — GENERAL PROVISIONS
+===============================================================================
+
+  14.1  ENTIRE AGREEMENT. This License, together with any applicable Order Form
+        or written agreement, constitutes the entire agreement between the
+        parties with respect to the subject matter hereof and supersedes all
+        prior and contemporaneous agreements, representations, and understandings.
+
+  14.2  AMENDMENTS. No amendment to this License will be binding unless in
+        writing and signed by authorized representatives of both parties.
+
+  14.3  WAIVER. Failure to enforce any provision of this License shall not
+        constitute a waiver of the Licensor's right to enforce such provision
+        in the future.
+
+  14.4  SEVERABILITY. If any provision of this License is held invalid or
+        unenforceable, the remaining provisions shall continue in full force
+        and effect.
+
+  14.5  NOTICES. All notices under this License must be in writing and delivered
+        to the contact information specified in the applicable Order Form.
+
+  14.6  COUNTERPARTS. This License may be executed in counterparts, each of
+        which shall be deemed an original.
+
+===============================================================================
+HOW TO OBTAIN A COMMERCIAL LICENSE
+===============================================================================
+
+To obtain a Commercial License for Sovereign OS, contact the project
+maintainers via the official Sovereign OS repository with:
+
+  - Your organization name and type (commercial / government / contractor)
+  - Intended use case and deployment scope
+  - Estimated number of users or deployments
+  - Desired license tier (Tier 1–4)
+
+Government procurement offices: this Software may be procured under standard
+government software licensing procedures. A Government Use License Agreement
+(GULA) addendum is available upon request.
+
+===============================================================================
+END OF COMMERCIAL LICENSE
+===============================================================================

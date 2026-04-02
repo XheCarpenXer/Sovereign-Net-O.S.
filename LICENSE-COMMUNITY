@@ -1,0 +1,147 @@
+SOVEREIGN OS COMMUNITY LICENSE
+Version 1.0 — March 2026
+
+Copyright (c) 2026 Sovereign OS Contributors ("Licensor")
+
+===============================================================================
+PART I — GRANT OF COMMUNITY LICENSE
+===============================================================================
+
+Subject to the terms and conditions of this License, the Licensor hereby
+grants you a worldwide, royalty-free, non-exclusive, non-sublicensable license
+to use, copy, modify, and distribute the Sovereign OS software and its
+accompanying documentation (the "Software") solely for the following permitted
+purposes:
+
+  1. Personal, non-commercial use by an individual for their own purposes.
+  2. Open-source projects distributed under an OSI-approved open-source license,
+     provided that the full source code of any derivative work is made publicly
+     available under this same License or a compatible open-source license.
+  3. Academic, educational, and non-commercial research use by accredited
+     educational institutions or individual researchers.
+  4. Evaluation and prototyping for the purpose of determining whether to
+     purchase a Commercial License.
+  5. Contributions back to the Sovereign OS project.
+
+===============================================================================
+PART II — RESTRICTIONS
+===============================================================================
+
+The Community License does NOT permit:
+
+  a) Use by any government body, agency, department, ministry, municipality,
+     military organization, intelligence service, law enforcement body, or any
+     entity acting on behalf of a government at any level (federal, state,
+     provincial, local, or international), whether domestic or foreign.
+
+  b) Commercial use by any for-profit entity, including but not limited to
+     corporations, limited liability companies, partnerships, sole traders, and
+     consultancies, except for internal evaluation as described in Section I(4).
+
+  c) Deployment of the Software as a service, platform, or product offered to
+     third parties, whether for payment or free of charge (SaaS, PaaS, API
+     services, hosted platforms).
+
+  d) Integration of the Software, in whole or in part, into any proprietary
+     product or service that is distributed or made available to third parties.
+
+  e) Use of the Software in connection with surveillance, profiling, targeted
+     advertising, military systems, autonomous weapons, or any system designed
+     to harm, coerce, or deceive individuals without their informed consent.
+
+  f) Removal or alteration of copyright notices, license headers, or attribution
+     statements contained in the Software.
+
+  g) Use of the Sovereign OS name, logo, or trademarks to endorse or promote
+     products derived from this Software without prior written permission.
+
+Any use not expressly permitted by Part I or that falls within the restrictions
+of Part II requires a Commercial License. See LICENSE-COMMERCIAL.
+
+===============================================================================
+PART III — COPYLEFT REQUIREMENT
+===============================================================================
+
+If you distribute, publish, or make available the Software or any derivative
+work — including over a network as a service — you must:
+
+  1. Make the complete corresponding source code available to all recipients
+     under this License, at no charge.
+  2. Include a prominent notice in all modified files stating that you have
+     changed the files and the date of any changes.
+  3. Retain all copyright, patent, trademark, and attribution notices from
+     the original Software.
+  4. Include a copy of this License with every distribution.
+
+===============================================================================
+PART IV — PATENT GRANT
+===============================================================================
+
+Each Contributor grants you a non-exclusive, worldwide, royalty-free patent
+license under the Contributor's essential patent claims, to make, use, sell,
+offer for sale, import, and otherwise run, modify, and propagate the contents
+of this version of the Software. This patent grant does not extend to any
+modifications you make.
+
+===============================================================================
+PART V — DISCLAIMER OF WARRANTIES
+===============================================================================
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, SECURITY, ACCURACY, OR NON-INFRINGEMENT.
+
+THE LICENSOR MAKES NO WARRANTY THAT THE SOFTWARE WILL MEET YOUR REQUIREMENTS,
+OPERATE WITHOUT INTERRUPTION, OR BE FREE OF ERRORS OR SECURITY VULNERABILITIES.
+
+THE CRYPTOGRAPHIC AND SECURITY COMPONENTS OF THE SOFTWARE, INCLUDING THE FHE
+SIMULATION AND P2P NETWORK SIMULATION, ARE PROVIDED FOR RESEARCH AND
+DEMONSTRATION PURPOSES ONLY AND SHOULD NOT BE RELIED UPON FOR PRODUCTION
+SECURITY PURPOSES WITHOUT INDEPENDENT AUDIT AND VERIFICATION.
+
+===============================================================================
+PART VI — LIMITATION OF LIABILITY
+===============================================================================
+
+IN NO EVENT SHALL THE LICENSOR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; LOSS OF DIGITAL ASSETS OR TOKENS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+===============================================================================
+PART VII — TERMINATION
+===============================================================================
+
+This License and the rights granted hereunder will terminate automatically upon
+any breach by you of the terms of this License. Upon termination, you must
+cease all use, distribution, and possession of copies of the Software.
+
+Sections V (Disclaimer), VI (Limitation of Liability), and VIII (Governing Law)
+survive termination.
+
+===============================================================================
+PART VIII — GOVERNING LAW
+===============================================================================
+
+This License is governed by the laws of the jurisdiction in which the Licensor
+is domiciled, without regard to conflict-of-law principles. Any dispute arising
+under this License shall be resolved by binding arbitration or in the courts of
+that jurisdiction.
+
+===============================================================================
+PART IX — COMMERCIAL LICENSING
+===============================================================================
+
+If your intended use falls outside the scope of this Community License, you
+must obtain a Commercial License before using, deploying, or distributing the
+Software. See LICENSE-COMMERCIAL for terms.
+
+For licensing inquiries: contact the project maintainers via the official
+Sovereign OS repository.
+
+===============================================================================
+END OF COMMUNITY LICENSE
+===============================================================================
