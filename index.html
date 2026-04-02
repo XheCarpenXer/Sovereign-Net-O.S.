@@ -3813,7 +3813,7 @@ function renderDAG() {
       : c.verified===false ? '<span title="Bad signature" style="color:var(--red);font-size:9px">!sig</span>' : '';
     const clkBadge = c.clock!==undefined ? '<span style="color:var(--text3);font-size:9px">t='+c.clock+'</span>' : '';
     const cidShort = c.cid ? c.cid.slice(0,12)+'...' : c.id;
-    return '<div><div class="dag-node '+(i===0?'selected':'')+'" onclick="selectCommit(''+c.id+'')">'+
+    return '<div><div class="dag-node '+(i===0?'selected':'')+'" onclick="selectCommit(\''+c.id+'\')">'+
       '<div><div class="dag-dot" style="background:'+dotColor+'"></div>'+
       (i<STATE.editors.commits.length-1?'<div class="dag-line"></div>':'')+
       '</div><div class="dag-meta"><div class="dag-msg">'+c.msg+'</div>'+
