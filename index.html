@@ -2947,19 +2947,34 @@ async function loadOrCreateIdentity() {
   let credits = await DB.get('identity', 'credits');
 
   if (privRaw && pubRaw) {
-    const keys = await Crypto.importIdentity(pubRaw, privRaw);
-    STATE.publicKey  = keys.publicKey;
-    STATE.privateKey = keys.privateKey;
-    // pubRaw is stored as a base64 string — decode to ArrayBuffer before hashing
-    const pubBytes = keys.pubRaw instanceof ArrayBuffer
-      ? keys.pubRaw
-      : Uint8Array.from(atob(typeof pubRaw === 'string' ? pubRaw : Crypto.ab2b64(pubRaw)), c => c.charCodeAt(0)).buffer;
-    const hash = await crypto.subtle.digest('SHA-256', pubBytes);
-    const hex = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    STATE.did = `did:svn:0x${hex.slice(0,40)}`;
-    STATE.pubKeyB64 = Crypto.ab2b64(pubBytes);
-    EventBus.emit('SYS', { msg:'Identity loaded from storage' });
-  } else {
+    let keys = null;
+    try {
+      keys = await Crypto.importIdentity(pubRaw, privRaw);
+    } catch (e) {
+      // Migration: old versions stored raw Ed25519 ArrayBuffers directly in IndexedDB
+      // (no base64 wrapping, different algorithm). These can't be imported as ECDSA P-256.
+      // Wipe the stale keys so a fresh ECDSA P-256 identity is generated below.
+      console.warn('[identity] Stale key format detected (likely Ed25519 → ECDSA P-256 migration). Regenerating identity.', e.name);
+      await DB.delete('identity', 'pubRaw').catch(()=>{});
+      await DB.delete('identity', 'privRaw').catch(()=>{});
+      privRaw = null;
+      pubRaw  = null;
+    }
+    if (keys) {
+      STATE.publicKey  = keys.publicKey;
+      STATE.privateKey = keys.privateKey;
+      // pubRaw is stored as a base64 string — decode to ArrayBuffer before hashing
+      const pubBytes = keys.pubRaw instanceof ArrayBuffer
+        ? keys.pubRaw
+        : Uint8Array.from(atob(typeof pubRaw === 'string' ? pubRaw : Crypto.ab2b64(pubRaw)), c => c.charCodeAt(0)).buffer;
+      const hash = await crypto.subtle.digest('SHA-256', pubBytes);
+      const hex = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      STATE.did = `did:svn:0x${hex.slice(0,40)}`;
+      STATE.pubKeyB64 = Crypto.ab2b64(pubBytes);
+      EventBus.emit('SYS', { msg:'Identity loaded from storage' });
+    }
+  }
+  if (!privRaw || !pubRaw) {
     const id = await Crypto.generateIdentity();
     STATE.publicKey  = id.publicKey;
     STATE.privateKey = id.privateKey;
