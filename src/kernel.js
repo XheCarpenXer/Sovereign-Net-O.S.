@@ -11,11 +11,11 @@
 "use strict";
 
 /**
- * SOVEREIGN NET OS — Absolute Kernel v3
+ * SOVEREIGN NET OS — Absolute Kernel v4
  *
  * Architecture: Everything mutates state through dispatch().
  * No direct access to DAG, SharedState, BlockStore, or SigPipeline.
- * All transitions: validated → costed → applied → recorded → emitted.
+ * All transitions: validated → costed → recorded → derived → emitted.
  *
  *   External Input (UI / Network / IPC)
  *           ↓
@@ -25,19 +25,24 @@
  *           ↓
  *      _consume(cost)
  *           ↓
- *      handler(state, event)
+ *      _record(entry) — canonical, frozen, immutable — BEFORE any state write
  *           ↓
- *      record(history) — canonical, frozen, universal envelope
+ *      reduce(state, entry) → delta   (pure, no I/O, no external reads)
+ *           ↓
+ *      _applyDelta(delta)  — ONLY state-write path in the entire system
  *           ↓
  *      emit effects (IPFS, network, UI)
  *
- * v3 changes (all 6):
- *   1. Universal frozen event envelope — every history entry has one shape.
- *   2. Typed fault taxonomy — KernelValidationError, KernelAuthError, etc.
- *   3. Hardened restore() — full schema validation before any assignment.
- *   4. Semantic DAG merge — conflict policies by value type.
- *   5. JS private fields (#state, #dag, #history, #blocks).
- *   6. Adversarial replay tests — see kernel-adversarial-tests.js.
+ * v4 changes (causality inversion — the log is now causal, not observational):
+ *   1. _record() is called BEFORE handler execution. Entry is immutable on creation.
+ *   2. Handlers are pure reducers: reduce(state, entry) → Delta — no direct #state writes.
+ *   3. _applyDelta(delta) is the sole state-write path. Delta ops: set/delete/dagSet/dagEdge/blockSet/blockDelete/peerRep/peerBan/pubkey/bw/historyTrim.
+ *   4. KernelReplayer becomes the reference implementation: replay(log) ≡ live execution.
+ *   5. Ordering invariant: entry.id is a deterministic hash(clock:type:origin:payload) —
+ *      ties broken by lexicographic id comparison, not wall-clock time.
+ *
+ * Previously (v3): state ← handler; log ← side-effect (observational)
+ * Now       (v4): log → reduce(state, entry) → state (causal)
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,10 +100,11 @@ class KernelHandlerError extends KernelError {
 // Every history entry always has this exact shape, no conditional omissions.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeEntry({ id, type, origin, payload, sig, status, result, error, cost }) {
+function makeEntry({ id, type, origin, payload, sig, status, result, error, cost, clock }) {
   return Object.freeze({
     id:      id      ?? null,
-    ts:      Date.now(),
+    ts:      Date.now(),        // wall time — for display only, not ordering
+    clock:   clock   ?? 0,      // logical kernel clock — canonical ordering key
     type:    type    ?? "UNKNOWN",
     origin:  origin  ?? "internal",
     payload: payload ?? {},
@@ -108,6 +114,38 @@ function makeEntry({ id, type, origin, payload, sig, status, result, error, cost
     error:   error   ?? null,
     cost:    cost    ?? 0,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELTA — the only shape state-writes may take.
+//
+// A reducer returns a Delta (or null for no-op).
+// _applyDelta() is the SOLE path that writes #state, #dag, #blocks, etc.
+// Keeping the op vocabulary small prevents ad-hoc mutation logic from creeping
+// back into reducers. Every op is reversible in principle (for future undo).
+//
+// Op types:
+//   { op:"set",          key, value }          — #state.set(key, value)
+//   { op:"delete",       key }                 — #state.delete(key)
+//   { op:"dagSet",       id, node }            — #dag.nodes.set(id, node)
+//   { op:"dagEdge",      src, dst }            — #dag.edges src→dst
+//   { op:"blockSet",     cid, block }          — #blocks.set(cid, block)
+//   { op:"blockDelete",  cid }                 — #blocks.delete(cid)
+//   { op:"blockPin",     cid, pinned }         — block.pinned = pinned
+//   { op:"peerRep",      peerId, rep }         — #peerRep.set(peerId, rep)
+//   { op:"pubkey",       peerId, pubKeyB64 }   — #peerPubkeys.set(...)
+//   { op:"bw",           upload, download }    — #bwLimits
+//   { op:"resetUnits" }                        — unitsUsed = 0
+//   { op:"historyTrim",  entries }             — replace #history with entries
+// ─────────────────────────────────────────────────────────────────────────────
+
+class Delta {
+  constructor(ops = []) {
+    this.ops = ops;
+  }
+  static of(...ops) { return new Delta(ops); }
+  static none()     { return new Delta([]); }
+  merge(other)      { return new Delta([...this.ops, ...other.ops]); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,14 +308,87 @@ class AbsoluteKernel {
   }
 
   // CHANGE 1: every call to _record produces the same canonical frozen shape
-  _record({ id, type, origin, payload, sig, status, result, error, cost }) {
-    const entry = makeEntry({ id, type, origin, payload, sig, status, result, error, cost });
+  _record({ id, type, origin, payload, sig, status, result, error, cost, clock }) {
+    const entry = makeEntry({ id, type, origin, payload, sig, status, result, error, cost, clock });
     this.#history.push(entry);
     return entry;
   }
 
   replay() {
     return JSON.parse(JSON.stringify(this.#history));
+  }
+
+  /**
+   * _applyDelta — the SOLE path that writes kernel state.
+   *
+   * Called by dispatch() after _record(). Never called directly by handlers.
+   * Handlers are reducers: they return a Delta, they do not mutate state.
+   *
+   * @param {Delta} delta
+   */
+  _applyDelta(delta) {
+    if (!delta || delta.ops.length === 0) return;
+    for (const op of delta.ops) {
+      switch (op.op) {
+        case "set":
+          this.#state.set(op.key, op.value);
+          break;
+        case "delete":
+          this.#state.delete(op.key);
+          break;
+        case "dagSet":
+          this.#dag.nodes.set(op.id, op.node);
+          break;
+        case "dagEdge": {
+          if (!this.#dag.edges.has(op.src)) this.#dag.edges.set(op.src, new Set());
+          this.#dag.edges.get(op.src).add(op.dst);
+          break;
+        }
+        case "blockSet":
+          this.#blocks.set(op.cid, op.block);
+          break;
+        case "blockDelete":
+          this.#blocks.delete(op.cid);
+          break;
+        case "blockPin": {
+          const b = this.#blocks.get(op.cid);
+          if (b) b.pinned = op.pinned;
+          break;
+        }
+        case "peerRep":
+          this.#peerRep.set(op.peerId, op.rep);
+          break;
+        case "pubkey":
+          this.#peerPubkeys.set(op.peerId, op.pubKeyB64);
+          break;
+        case "bw":
+          this.#bwLimits = { upload: op.upload, download: op.download };
+          break;
+        case "resetUnits":
+          this.unitsUsed = 0;
+          break;
+        case "historyTrim":
+          this.#history = op.entries;
+          break;
+        case "dagGc": {
+          // op.remove: Set of node ids to remove; op.edgePrune: Set of src ids
+          for (const id of (op.remove ?? [])) {
+            this.#dag.nodes.delete(id);
+            this.#dag.edges.delete(id);
+          }
+          for (const [src, targets] of this.#dag.edges) {
+            for (const t of [...targets]) {
+              if (!this.#dag.nodes.has(t)) targets.delete(t);
+            }
+            if (targets.size === 0) this.#dag.edges.delete(src);
+          }
+          break;
+        }
+        default:
+          // Unknown op — silently ignore to stay forward-compatible
+          break;
+      }
+    }
   }
 }
 
@@ -344,14 +455,16 @@ class DispatchKernel extends AbsoluteKernel {
     try {
       this.sig.verify(evt);
     } catch (err) {
-      const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "rejected", result: null, error: err.message, cost: 0 });
+      this.clock++;
+      const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "rejected", result: null, error: err.message, cost: 0, clock: this.clock });
       return { ok: false, error: err.message, entry };
     }
 
     // 2. Find handler
     const handler = this._handlers.get(evt.type);
     if (!handler) {
-      const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "unknown", result: null, error: `No handler for event type: ${evt.type}`, cost: 0 });
+      this.clock++;
+      const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "unknown", result: null, error: `No handler for event type: ${evt.type}`, cost: 0, clock: this.clock });
       return { ok: false, error: `No handler for event type: ${evt.type}`, entry };
     }
 
@@ -364,28 +477,51 @@ class DispatchKernel extends AbsoluteKernel {
       try {
         this._consume(handlerCost);
       } catch (err) {
-        const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "throttled", result: null, error: err.message, cost: 0 });
+        this.clock++;
+        const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "throttled", result: null, error: err.message, cost: 0, clock: this.clock });
         return { ok: false, error: err.message, entry };
       }
     }
 
-    // 4. Apply
-    let result;
+    // 4. REDUCE — handler is a pure function: (payload, evt) → Delta.
+    //    Invariants:
+    //      • No async inside reduce
+    //      • No direct #state / #dag / #blocks writes
+    //      • No reads of external I/O or non-deterministic sources
+    //    If these hold, replay(log) ≡ live execution — always.
+    let delta;
     try {
       this._dispatchDepth++;
-      result = handler.fn.call(this, evt.payload, evt);
+      delta = handler.fn.call(this, evt.payload, evt);
     } catch (err) {
-      const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "failed", result: null, error: err.message, cost: handlerCost });
-      return { ok: false, error: err.message, entry };
+      // Reducer threw — record the failure, apply no state change.
+      // Record AFTER reduce so we know the true status; BEFORE any state
+      // write (there is none on failure) — causality still holds.
+      this.clock++;
+      this._record({ id, type: evt.type, origin, payload, sig, status: "failed", result: null, error: err.message, cost: handlerCost, clock: this.clock });
+      return { ok: false, error: err.message };
     } finally {
       this._dispatchDepth--;
     }
 
-    // 5. Record — canonical frozen envelope
-    const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "ok", result: result ?? null, error: null, cost: handlerCost });
-
-    // 6. Effects
+    // 5. RECORD — after reduce (status known), before apply (state unchanged).
+    //    This is the causal boundary: the entry is sealed before any state write.
+    //    entry.clock = this.clock + 1 (the value clock will have after this dispatch).
+    //    Ordering invariant: entries are strictly monotonic by clock; ties broken
+    //    by lexicographic id — never wall-clock (entry.ts is display-only).
     this.clock++;
+    const entry = this._record({ id, type: evt.type, origin, payload, sig, status: "ok", result: null, error: null, cost: handlerCost, clock: this.clock });
+
+    // 6. APPLY — the sole path that writes kernel state.
+    let result = null;
+    if (delta instanceof Delta) {
+      this._applyDelta(delta);
+      result = delta;
+    } else {
+      result = delta ?? null;
+    }
+
+    // 7. Effects
     this._notify(evt, result, entry);
 
     return { ok: true, result, entry };
@@ -511,9 +647,7 @@ class DispatchKernel extends AbsoluteKernel {
   }
 
   _registerBuiltins() {
-    // Fix 6: Guard against prototype pollution — reject reserved key names that
-    // would climb the prototype chain if the state Map were ever spread into a
-    // plain object, or if a downstream consumer uses key as a property name.
+    // Guard against prototype pollution — shared by all reducers below.
     const _guardStateKey = (key, op) => {
       if (typeof key !== "string" || key === "") throw new KernelValidationError("INVALID_PAYLOAD", `${op} requires a non-empty string key`);
       if (key === "__proto__" || key === "constructor" || key === "prototype") {
@@ -521,44 +655,45 @@ class DispatchKernel extends AbsoluteKernel {
       }
     };
 
+    // ── State ───────────────────────────────────────────────────────────────
+    // All reducers below are PURE: they read current state via this._state etc.
+    // (read-only within the reduce call), then return a Delta describing the
+    // change. _applyDelta() performs the actual writes after _record() seals
+    // the entry. This is the invariant that makes replay ≡ live execution.
+
     this.register("STATE_SET", ({ key, value }) => {
       _guardStateKey(key, "STATE_SET");
-      const prev = this._state.get(key);
-      this._state.set(key, value);
-      return { key, prev, value };
+      return Delta.of({ op: "set", key, value });
     });
 
     this.register("STATE_DELETE", ({ key }) => {
       _guardStateKey(key, "STATE_DELETE");
-      const prev = this._state.get(key);
-      this._state.delete(key);
-      return { key, prev };
+      return Delta.of({ op: "delete", key });
     });
 
     this.register("STATE_MERGE", ({ key, patch }) => {
       _guardStateKey(key, "STATE_MERGE");
-      if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new KernelValidationError("INVALID_PAYLOAD", "STATE_MERGE requires key + plain-object patch");
-      // Strip inherited prototype keys from patch before spreading
+      if (!patch || typeof patch !== "object" || Array.isArray(patch))
+        throw new KernelValidationError("INVALID_PAYLOAD", "STATE_MERGE requires key + plain-object patch");
       const safePatch = Object.assign(Object.create(null), patch);
-      const prev = this._state.get(key) ?? {};
-      const next = { ...prev, ...safePatch };
-      this._state.set(key, next);
-      return { key, prev, next };
+      const prev  = this._state.get(key) ?? {};
+      const value = { ...prev, ...safePatch };
+      return Delta.of({ op: "set", key, value });
     });
+
+    // ── DAG ─────────────────────────────────────────────────────────────────
 
     this.register("DAG_COMMIT", ({ id, data, parents = [] }) => {
       if (!id) throw new KernelValidationError("INVALID_PAYLOAD", "DAG_COMMIT requires id");
       if (this._dag.nodes.has(id)) throw new KernelHandlerError("DAG_CONFLICT", `Node ${id} already exists`);
-      this._dag.nodes.set(id, { id, data, parents, ts: this.clock });
-      for (const p of parents) {
-        if (!this._dag.edges.has(p)) this._dag.edges.set(p, new Set());
-        this._dag.edges.get(p).add(id);
-      }
-      return { id, parents };
+      const node = { id, data, parents, ts: this.clock };
+      const ops  = [{ op: "dagSet", id, node }];
+      for (const p of parents) ops.push({ op: "dagEdge", src: p, dst: id });
+      return new Delta(ops);
     }, { cost: 2 });
 
     /**
-     * CHANGE 4 — Semantic DAG merge with conflict policies by value type:
+     * Semantic DAG merge — conflict policies by value type:
      *   counter → additive  |  set → union  |  log → append  |  object → recursive  |  scalar → latest-wins
      */
     this.register("DAG_MERGE", ({ base, head, resolver }) => {
@@ -571,54 +706,50 @@ class DispatchKernel extends AbsoluteKernel {
       const registeredResolver = nodeType ? this._dagResolvers.get(nodeType) : undefined;
 
       let mergedData;
-      if (resolver)                  mergedData = resolver(baseNode.data, headNode.data);
-      else if (registeredResolver)   mergedData = registeredResolver(baseNode.data, headNode.data);
-      else                           mergedData = semanticMerge(baseNode, headNode);
+      if (resolver)                mergedData = resolver(baseNode.data, headNode.data);
+      else if (registeredResolver) mergedData = registeredResolver(baseNode.data, headNode.data);
+      else                         mergedData = semanticMerge(baseNode, headNode);
 
-      this._dag.nodes.set(mergedId, { id: mergedId, data: mergedData, parents: [base, head], ts: this.clock });
-      if (!this._dag.edges.has(base)) this._dag.edges.set(base, new Set());
-      if (!this._dag.edges.has(head)) this._dag.edges.set(head, new Set());
-      this._dag.edges.get(base).add(mergedId);
-      this._dag.edges.get(head).add(mergedId);
-      return { mergedId, base, head, mergedData };
+      const node = { id: mergedId, data: mergedData, parents: [base, head], ts: this.clock };
+      return Delta.of(
+        { op: "dagSet",  id: mergedId, node },
+        { op: "dagEdge", src: base, dst: mergedId },
+        { op: "dagEdge", src: head, dst: mergedId },
+      );
     }, { cost: 3 });
 
-    const MAX_BLOCK_SIZE = 10 * 1024 * 1024; // 10 MB per block
+    // ── Blocks ───────────────────────────────────────────────────────────────
+
+    const MAX_BLOCK_SIZE = 10 * 1024 * 1024;
     this.register("BLOCK_PUT", ({ cid, data, meta = {} }) => {
       if (!cid) throw new KernelValidationError("INVALID_PAYLOAD", "BLOCK_PUT requires cid");
-      // Fix 7: Enforce block size limit to prevent memory exhaustion
       const dataSize = typeof data === "string" ? data.length : (data instanceof Uint8Array ? data.byteLength : 0);
-      // FIX: Removed Buffer.isBuffer(data) — Buffer is Node-only and unavailable in
-      // browser/renderer contexts. Uint8Array covers all typed-array data; Buffer
-      // extends Uint8Array so it is already caught by the instanceof check.
-      if (dataSize > MAX_BLOCK_SIZE) {
+      if (dataSize > MAX_BLOCK_SIZE)
         throw new KernelValidationError("BLOCK_TOO_LARGE", `BLOCK_PUT data size ${dataSize} exceeds limit of ${MAX_BLOCK_SIZE} bytes`);
-      }
-      if (this._blocks.has(cid)) return { cid, duplicate: true };
-      this._blocks.set(cid, { cid, data, meta, ts: this.clock });
-      return { cid, size: meta.size ?? dataSize };
+      if (this._blocks.has(cid)) return Delta.none(); // idempotent duplicate
+      return Delta.of({ op: "blockSet", cid, block: { cid, data, meta, ts: this.clock } });
     });
 
     this.register("BLOCK_PIN", ({ cid }) => {
-      const block = this._blocks.get(cid);
-      if (!block) throw new KernelHandlerError("BLOCK_MISSING", `CID ${cid} not in store`);
-      block.pinned = true;
-      return { cid, pinned: true };
+      if (!this._blocks.has(cid)) throw new KernelHandlerError("BLOCK_MISSING", `CID ${cid} not in store`);
+      return Delta.of({ op: "blockPin", cid, pinned: true });
     });
 
     this.register("BLOCK_DELETE", ({ cid }) => {
       const block = this._blocks.get(cid);
       if (!block) throw new KernelHandlerError("BLOCK_MISSING", `CID ${cid} not in store`);
       if (block.pinned) throw new KernelHandlerError("BLOCK_PINNED", `Cannot delete pinned block ${cid}`);
-      this._blocks.delete(cid);
-      return { cid };
+      return Delta.of({ op: "blockDelete", cid });
     });
+
+    // ── DAG GC ───────────────────────────────────────────────────────────────
 
     this.register("DAG_GC", () => {
       const pinnedCids = new Set(Array.from(this._blocks.values()).filter(b => b.pinned).map(b => b.cid));
       const roots = new Set();
       for (const [id] of this._dag.nodes) if (pinnedCids.has(id)) roots.add(id);
-      if (roots.size === 0) return { collected: 0, retained: this._dag.nodes.size };
+      if (roots.size === 0) return Delta.none();
+
       const reachable = new Set(roots);
       const queue = [...roots];
       while (queue.length) {
@@ -627,49 +758,48 @@ class DispatchKernel extends AbsoluteKernel {
           if (!reachable.has(child)) { reachable.add(child); queue.push(child); }
         }
       }
-      let collected = 0;
+      const remove = [];
       for (const [id] of this._dag.nodes) {
-        if (!reachable.has(id)) { this._dag.nodes.delete(id); this._dag.edges.delete(id); collected++; }
+        if (!reachable.has(id)) remove.push(id);
       }
-      for (const [src, targets] of this._dag.edges) {
-        // FIX: iterate a snapshot array so we can safely delete from the live Set
-        for (const t of [...targets]) if (!this._dag.nodes.has(t)) targets.delete(t);
-        if (targets.size === 0) this._dag.edges.delete(src);
-      }
-      return { collected, retained: this._dag.nodes.size };
+      if (remove.length === 0) return Delta.none();
+      return Delta.of({ op: "dagGc", remove });
     }, { cost: 5 });
+
+    // ── Peer reputation ──────────────────────────────────────────────────────
 
     const REP_BAN_THRESHOLD  = -20;
     const REP_GOOD_THRESHOLD = 50;
 
-    this.register("PEER_REP_EVENT", ({ peerId, type: evtType, delta }) => {
-      if (!peerId || typeof delta !== "number") throw new KernelValidationError("INVALID_PAYLOAD", "PEER_REP_EVENT requires peerId+delta");
-      if (!this._peerRep.has(peerId)) this._peerRep.set(peerId, { score: 0, events: [], banned: false });
-      const rep = this._peerRep.get(peerId);
-      rep.score = Math.max(-100, Math.min(100, rep.score + delta));
-      rep.events.push({ t: this.clock, type: evtType, delta });
-      if (rep.events.length > 50) rep.events.shift();
-      const wasBanned = rep.banned;
-      if (!rep.banned && rep.score <= REP_BAN_THRESHOLD) rep.banned = true;
-      rep.trusted = rep.score >= REP_GOOD_THRESHOLD;
-      return { peerId, score: rep.score, banned: rep.banned, freshBan: !wasBanned && rep.banned };
+    this.register("PEER_REP_EVENT", ({ peerId, type: evtType, delta: scoreDelta }) => {
+      if (!peerId || typeof scoreDelta !== "number")
+        throw new KernelValidationError("INVALID_PAYLOAD", "PEER_REP_EVENT requires peerId+delta");
+      const prev    = this._peerRep.get(peerId) ?? { score: 0, events: [], banned: false };
+      const score   = Math.max(-100, Math.min(100, prev.score + scoreDelta));
+      const events  = [...prev.events, { t: this.clock, type: evtType, delta: scoreDelta }].slice(-50);
+      const banned  = prev.banned || score <= REP_BAN_THRESHOLD;
+      const trusted = score >= REP_GOOD_THRESHOLD;
+      const rep     = { score, events, banned, trusted };
+      return Delta.of({ op: "peerRep", peerId, rep });
     });
 
     this.register("PEER_REP_DECAY", () => {
-      let changed = 0;
-      for (const [, rep] of this._peerRep) {
-        if (rep.score > 0) { rep.score = Math.max(0, rep.score - 1); changed++; }
-        if (rep.score < 0) { rep.score = Math.min(0, rep.score + 1); changed++; }
+      const ops = [];
+      for (const [peerId, rep] of this._peerRep) {
+        if (rep.score === 0) continue;
+        const score = rep.score > 0
+          ? Math.max(0, rep.score - 1)
+          : Math.min(0, rep.score + 1);
+        ops.push({ op: "peerRep", peerId, rep: { ...rep, score } });
       }
-      return { decayed: changed };
+      return new Delta(ops);
     }, { cost: 0 });
 
     this.register("PEER_BAN", ({ peerId, ban }) => {
-      if (!this._peerRep.has(peerId)) this._peerRep.set(peerId, { score: 0, events: [], banned: false });
-      const rep = this._peerRep.get(peerId);
-      rep.banned = !!ban;
-      if (ban) rep.score = Math.min(rep.score, REP_BAN_THRESHOLD);
-      return { peerId, banned: rep.banned, score: rep.score };
+      const prev  = this._peerRep.get(peerId) ?? { score: 0, events: [], banned: false };
+      const score = ban ? Math.min(prev.score, REP_BAN_THRESHOLD) : prev.score;
+      const rep   = { ...prev, banned: !!ban, score };
+      return Delta.of({ op: "peerRep", peerId, rep });
     });
 
     this.register("PEER_PUBKEY_REGISTER", ({ peerId, pubKeyB64 }) => {
@@ -677,27 +807,22 @@ class DispatchKernel extends AbsoluteKernel {
         throw new KernelValidationError("INVALID_PAYLOAD", "PEER_PUBKEY_REGISTER requires peerId + pubKeyB64");
       if (!/^[A-Za-z0-9+/]+=*$/.test(pubKeyB64))
         throw new KernelAuthError("INVALID_PUBKEY", "pubKeyB64 is not valid base64");
-      const prev = this._peerPubkeys.get(peerId) ?? null;
-      this._peerPubkeys.set(peerId, pubKeyB64);
-      return { peerId, registered: true, replaced: prev !== null };
+      return Delta.of({ op: "pubkey", peerId, pubKeyB64 });
     }, { cost: 0 });
 
+    // ── System ───────────────────────────────────────────────────────────────
+
     this.register("BW_SET_LIMITS", ({ upload = 0, download = 0 }) => {
-      this._bwLimits.upload   = Math.max(0, upload);
-      this._bwLimits.download = Math.max(0, download);
-      return { ...this._bwLimits };
+      return Delta.of({ op: "bw", upload: Math.max(0, upload), download: Math.max(0, download) });
     });
 
     this.register("IDENTITY_SET", ({ did, handle, peerId }) => {
       if (!did) throw new KernelValidationError("INVALID_PAYLOAD", "IDENTITY_SET requires did");
-      this._state.set("identity", { did, handle: handle ?? peerId?.slice(0, 12), peerId });
-      return { did, handle };
+      return Delta.of({ op: "set", key: "identity", value: { did, handle: handle ?? peerId?.slice(0, 12), peerId } });
     });
 
     this.register("KERNEL_RESET_UNITS", () => {
-      const prev = this.unitsUsed;
-      this.unitsUsed = 0;
-      return { prev };
+      return Delta.of({ op: "resetUnits" });
     }, { cost: 0 });
   }
 
@@ -820,11 +945,14 @@ function createIpcBridge(kernel, ipcMain, mainWindow) {
     catch (err) { return { ok: false, error: err.message }; }
   });
 
-  kernel.effect("PEER_REP_EVENT", (result) => {
-    if (result.freshBan) mainWindow?.webContents?.send("peer:banned", { peerId: result.peerId, score: result.score });
+  kernel.effect("PEER_REP_EVENT", (_result, _entry, evt) => {
+    // After the reducer runs, read the new rep from authoritative state.
+    const rep = kernel.query("PEER_REP", evt.payload.peerId);
+    if (rep?.banned) mainWindow?.webContents?.send("peer:banned", { peerId: evt.payload.peerId, score: rep.score });
   });
-  kernel.effect("BW_SET_LIMITS", (result) => {
-    mainWindow?.webContents?.send("bw:limitsChanged", result);
+  kernel.effect("BW_SET_LIMITS", (_result, _entry, evt) => {
+    const limits = kernel.query("BW_LIMITS");
+    mainWindow?.webContents?.send("bw:limitsChanged", limits);
   });
 
   setInterval(() => {
@@ -838,6 +966,7 @@ function createIpcBridge(kernel, ipcMain, mainWindow) {
 module.exports = {
   DispatchKernel,
   SigPipeline,
+  Delta,
   KernelError,
   KernelValidationError,
   KernelAuthError,

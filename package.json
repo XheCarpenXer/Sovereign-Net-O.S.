@@ -4,7 +4,6 @@
   "version": "0.2.0",
   "description": "Sovereign Net OS — Decentralized Internet Node Desktop App with DIK (Deterministic Interaction Kernel)",
   "main": "src/main.js",
-  "type": "module",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",

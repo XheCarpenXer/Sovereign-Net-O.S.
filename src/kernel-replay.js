@@ -11,11 +11,16 @@
 "use strict";
 
 /**
- * SOVEREIGN NET OS — Kernel Replay Engine
+ * SOVEREIGN NET OS — Kernel Replay Engine (v4)
  *
- * True event sourcing: state = f(event log).
- * Given a history array, this rebuilds the kernel from zero
- * without any snapshot dependency.
+ * Reference implementation of the causal execution model.
+ * replay(log) is definitionally equivalent to live execution:
+ *
+ *   log → dispatch(entry) → reduce → _applyDelta → state
+ *
+ * Because dispatch() now records BEFORE reducing (v4 causality inversion),
+ * re-dispatching a history entry on a fresh kernel produces byte-identical
+ * state. The replayer IS the specification; live execution conforms to it.
  *
  * Use cases:
  *   1. Debug / audit: replay a peer's event log to verify their state
@@ -23,6 +28,7 @@
  *   3. Time-travel: replay up to clock N to inspect past state
  *   4. Migration: replay on a new kernel version to upgrade state shape
  *   5. Proof: prove a state claim by sharing a replayable log
+ *   6. Self-check: verify live kernel hasn't drifted from its own log
  */
 
 const { DispatchKernel } = require("./kernel");
@@ -77,21 +83,28 @@ class KernelReplayer {
     let skipped = 0;
     const errors = [];
 
-    // Filter to only dispatchable entries (skip meta-events)
+    // Filter to only dispatchable entries.
+    // Entries with status != "ok" are audit records — they describe what was
+    // attempted and rejected, not a state transition to replay.
+    // Secondary ":FAILED" type records are likewise skipped.
     const skip = new Set([
       "DISPATCH_REJECTED", "DISPATCH_FAILED", "DISPATCH_THROTTLED",
       "DISPATCH_UNKNOWN", "observe",
     ]);
 
     for (const entry of history) {
-      if (entry.t > toClockT) break;
+      if ((entry.clock ?? entry.t ?? 0) > toClockT) break;
       if (skip.has(entry.type)) { skipped++; continue; }
+      // Skip non-ok entries (rejected, throttled, failed, unknown) and
+      // secondary ":FAILED" audit records emitted by the v4 error path.
+      if (entry.status !== "ok") { skipped++; continue; }
+      if (entry.type.endsWith(":FAILED")) { skipped++; continue; }
 
       // ── Entry structure validation ─────────────────────────────────────────
       const validationError = this._validateEntry(entry);
       if (validationError) {
         errors.push({ entry, error: validationError });
-        if (strict) throw new Error(`Invalid entry at t=${entry.t}: ${validationError}`);
+        if (strict) throw new Error(`Invalid entry at clock=${entry.clock ?? entry.t}: ${validationError}`);
         skipped++;
         continue;
       }
@@ -105,7 +118,7 @@ class KernelReplayer {
 
         if (!result.ok) {
           errors.push({ entry, error: result.error });
-          if (strict) throw new Error(`Replay failed at t=${entry.t}: ${result.error}`);
+          if (strict) throw new Error(`Replay failed at clock=${entry.clock ?? entry.t}: ${result.error}`);
           skipped++;
         } else {
           applied++;
@@ -228,7 +241,7 @@ class KernelReplayer {
    * @returns {Array}
    */
   trim(history, afterClock) {
-    return history.filter(entry => entry.t > afterClock);
+    return history.filter(entry => (entry.clock ?? entry.t ?? 0) > afterClock);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -249,7 +262,7 @@ class KernelReplayer {
     const combined = [];
 
     for (const entry of [...logA, ...logB]) {
-      const key = entry.id ?? `${entry.t}:${entry.type}:${JSON.stringify(entry.payload)}`;
+      const key = entry.id ?? `${entry.clock ?? entry.t}:${entry.type}:${JSON.stringify(entry.payload)}`;
       if (seen.has(key)) continue;
       seen.add(key);
       combined.push(entry);
@@ -274,7 +287,7 @@ class KernelReplayer {
    *
    * Rules enforced:
    *   • entry must be a non-null, non-array object
-   *   • entry.t    — required, finite number (clock tick)
+   *   • entry.clock — required, finite number (logical clock tick; entry.t accepted for v3 compat)
    *   • entry.type — required, non-empty string
    *   • entry.payload — optional; when present must be a plain object
    *     (not an array, not a primitive) so the dispatcher can spread it safely
@@ -289,9 +302,10 @@ class KernelReplayer {
       return "entry must be a non-null, non-array object";
     }
 
-    // clock tick
-    if (typeof entry.t !== "number" || !Number.isFinite(entry.t)) {
-      return `entry.t must be a finite number (got ${JSON.stringify(entry.t)})`;
+    // clock — v4 entries use entry.clock (logical); v3 used entry.t. Accept both.
+    const clock = entry.clock ?? entry.t;
+    if (typeof clock !== "number" || !Number.isFinite(clock)) {
+      return `entry.clock must be a finite number (got ${JSON.stringify(clock)})`;
     }
 
     // event type

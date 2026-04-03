@@ -321,7 +321,10 @@ class KernelPersist {
             entry.type &&
             !["DISPATCH_REJECTED","DISPATCH_FAILED","DISPATCH_THROTTLED","DISPATCH_UNKNOWN"].includes(entry.type)
           ) {
-            this.kernel.dispatch({ ...entry.payload, type: entry.type, origin: "wal-replay" });
+            // v4: dispatch with the entry's payload directly (not spread).
+            // entry.payload is the event payload object — matches live dispatch shape.
+            const payload = entry.payload?.payload ?? entry.payload ?? {};
+            this.kernel.dispatch({ type: entry.type, payload, origin: "wal-replay" });
             count++;
           }
         } catch (_) {}
