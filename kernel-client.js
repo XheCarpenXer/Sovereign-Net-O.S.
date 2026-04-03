@@ -124,11 +124,7 @@
       try {
         const tx    = this._localDb.transaction('state', 'readonly');
         const store = tx.objectStore('state');
-        const req   = store.getAll();
-        req.onsuccess = () => {
-          // getAll returns values; we need keys too — iterate with openCursor
-        };
-        // Use cursor to get key+value pairs
+        // Use cursor to get key+value pairs (getAll doesn't return keys)
         const cursor = store.openCursor();
         cursor.onsuccess = (e) => {
           const c = e.target.result;
@@ -136,6 +132,7 @@
           this._local.state.set(c.key, c.value);
           c.continue();
         };
+        cursor.onerror = () => { /* non-fatal — in-memory fallback still works */ };
       } catch (_) {}
     }
 
@@ -422,30 +419,29 @@
     // ────────────────────────────────────────────────────────────────────────
 
     _invalidate(eventType) {
-      // Map event types to query cache keys to invalidate
+      // Map event types to exact query-cache key prefixes to evict.
+      // Only invalidate stores that could have been mutated by this event;
+      // do NOT sweep unrelated prefixes (e.g. STATE_GET on a PEER_BAN).
       const invalidationMap = {
-        'STATE_SET':       ['STATE_ALL'],
-        'STATE_DELETE':    ['STATE_ALL'],
-        'STATE_MERGE':     ['STATE_ALL'],
-        'PEER_REP_EVENT':  ['PEER_REP_ALL'],
-        'PEER_BAN':        ['PEER_REP_ALL'],
+        'STATE_SET':       ['STATE_ALL', 'STATE_GET'],
+        'STATE_DELETE':    ['STATE_ALL', 'STATE_GET'],
+        'STATE_MERGE':     ['STATE_ALL', 'STATE_GET'],
+        'IDENTITY_SET':    ['STATE_ALL', 'STATE_GET'],
+        'PEER_REP_EVENT':  ['PEER_REP_ALL', 'PEER_REP:'],
+        'PEER_BAN':        ['PEER_REP_ALL', 'PEER_REP:'],
+        'PEER_REP_DECAY':  ['PEER_REP_ALL'],
         'BW_SET_LIMITS':   ['BW_LIMITS'],
-        'DAG_COMMIT':      [],
-        'DAG_MERGE':       [],
-        'BLOCK_PUT':       [],
-        'IDENTITY_SET':    ['STATE_ALL'],
+        'DAG_COMMIT':      ['DAG_NODE:', 'DAG_EDGES:'],
+        'DAG_MERGE':       ['DAG_NODE:', 'DAG_EDGES:'],
+        'DAG_GC':          ['DAG_NODE:', 'DAG_EDGES:'],
+        'BLOCK_PUT':       ['BLOCK_GET:'],
+        'BLOCK_PIN':       ['BLOCK_GET:'],
+        'BLOCK_DELETE':    ['BLOCK_GET:'],
       };
       const toInvalidate = invalidationMap[eventType] ?? [];
-      for (const key of toInvalidate) {
-        // Delete all cache entries whose key starts with the query type
+      for (const prefix of toInvalidate) {
         for (const cacheKey of this._cache.keys()) {
-          if (cacheKey.startsWith(key)) this._cache.delete(cacheKey);
-        }
-      }
-      // Also invalidate exact-key queries (e.g., STATE_GET:["theme"])
-      for (const cacheKey of this._cache.keys()) {
-        if (cacheKey.startsWith('STATE_GET') || cacheKey.startsWith('PEER_REP:')) {
-          this._cache.delete(cacheKey);
+          if (cacheKey.startsWith(prefix)) this._cache.delete(cacheKey);
         }
       }
     }

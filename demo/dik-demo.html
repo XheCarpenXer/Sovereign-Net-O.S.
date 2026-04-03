@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIK Demo - Sovereign OS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0f;
+      color: #00ff88;
+      overflow: hidden;
+    }
+    
+    #container {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+    }
+    
+    #header {
+      background: #12121a;
+      padding: 20px;
+      border-bottom: 2px solid #00ff88;
+    }
+    
+    h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    
+    #stats {
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+      color: #888;
+    }
+    
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .stat-value {
+      color: #00ff88;
+      font-weight: bold;
+    }
+    
+    #main {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 1px;
+      background: #2a2a3a;
+    }
+    
+    #dik-container {
+      position: relative;
+      background: #0a0a0f;
+      overflow: hidden;
+    }
+    
+    #sidebar {
+      background: #12121a;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    #sidebar h2 {
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #00ff88;
+    }
+    
+    #intent-log {
+      max-height: 300px;
+      overflow-y: auto;
+      background: #0a0a0f;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    
+    .intent-item {
+      font-size: 11px;
+      padding: 5px;
+      margin-bottom: 5px;
+      background: #1a1a25;
+      border-left: 2px solid #00ff88;
+      padding-left: 8px;
+    }
+    
+    .intent-type {
+      color: #00ff88;
+      font-weight: bold;
+    }
+    
+    .intent-target {
+      color: #888;
+    }
+    
+    .intent-payload {
+      color: #666;
+      font-size: 10px;
+    }
+    
+    .dik-node {
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #00ff88;
+      font-size: 14px;
+      user-select: none;
+    }
+    
+    .dik-node:hover {
+      background: rgba(0, 255, 136, 0.2);
+      border-color: #00ff88;
+    }
+    
+    .dik-node.active {
+      background: rgba(0, 255, 136, 0.3);
+      border-color: #00ff88;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    }
+    
+    #controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    button {
+      background: #00ff88;
+      color: #0a0a0f;
+      border: none;
+      padding: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: inherit;
+    }
+    
+    button:hover {
+      background: #00aa5a;
+    }
+    
+    #tree-view {
+      font-size: 11px;
+      color: #666;
+      white-space: pre;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <h1>🎯 DIK (Deterministic Interaction Kernel) Demo</h1>
+      <div id="stats">
+        <div class="stat">
+          <span>Tick:</span>
+          <span class="stat-value" id="tick-count">0</span>
+        </div>
+        <div class="stat">
+          <span>Intents:</span>
+          <span class="stat-value" id="intent-count">0</span>
+        </div>
+        <div class="stat">
+          <span>Nodes:</span>
+          <span class="stat-value" id="node-count">0</span>
+        </div>
+        <div class="stat">
+          <span>FPS:</span>
+          <span class="stat-value" id="fps">60</span>
+        </div>
+      </div>
+    </div>
+    
+    <div id="main">
+      <div id="dik-container"></div>
+      
+      <div id="sidebar">
+        <h2>Intent Log</h2>
+        <div id="intent-log"></div>
+        
+        <h2>Controls</h2>
+        <div id="controls">
+          <button onclick="clearLog()">Clear Log</button>
+          <button onclick="addRandomNode()">Add Random Node</button>
+          <button onclick="resetTree()">Reset Tree</button>
+        </div>
+        
+        <h2>Spatial Tree</h2>
+        <div id="tree-view"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module">
+    // This demo shows the DIK system in action
+    // Note: In production, import from actual modules
+    
+    console.log('[DIK Demo] Starting...');
+    
+    // Simple DIK implementation for demo
+    class SimpleDIK {
+      constructor() {
+        this.tick = 0;
+        this.nodes = new Map();
+        this.intents = [];
+        this.rootId = 'root';
+        
+        // Create root
+        this.nodes.set(this.rootId, {
+          id: this.rootId,
+          x: 0, y: 0, w: window.innerWidth - 350, h: window.innerHeight - 100,
+          children: []
+        });
+      }
+      
+      addNode(id, x, y, w, h, parentId = 'root') {
+        const node = { id, x, y, w, h, children: [] };
+        this.nodes.set(id, node);
+        
+        const parent = this.nodes.get(parentId);
+        if (parent) {
+          parent.children.push(id);
+        }
+        
+        return node;
+      }
+      
+      hitTest(x, y) {
+        // Simple hit test
+        for (const [id, node] of this.nodes) {
+          if (id === 'root') continue;
+          if (x >= node.x && x < node.x + node.w &&
+              y >= node.y && y < node.y + node.h) {
+            return node;
+          }
+        }
+        return null;
+      }
+      
+      processInput(type, x, y) {
+        const target = this.hitTest(x, y);
+        
+        if (target) {
+          const intent = {
+            type: `ui.${type}`,
+            target: target.id,
+            x, y,
+            tick: this.tick
+          };
+          
+          this.intents.push(intent);
+          return intent;
+        }
+        
+        return null;
+      }
+      
+      runFrame() {
+        this.tick++;
+        return this.intents.slice();
+      }
+    }
+    
+    // Initialize
+    const dik = new SimpleDIK();
+    const container = document.getElementById('dik-container');
+    const intentLog = document.getElementById('intent-log');
+    const treeView = document.getElementById('tree-view');
+    
+    let activeNode = null;
+    let totalIntents = 0;
+    
+    // Create initial nodes
+    function initNodes() {
+      const colors = ['#ff0088', '#00ff88', '#0088ff', '#ff8800'];
+      
+      for (let i = 0; i < 5; i++) {
+        const x = 100 + i * 150;
+        const y = 100 + Math.random() * 300;
+        const w = 120;
+        const h = 80;
+        
+        const node = dik.addNode(`node-${i}`, x, y, w, h);
+        node.color = colors[i % colors.length];
+        node.label = `Node ${i}`;
+        
+        renderNode(node);
+      }
+      
+      updateTreeView();
+      updateStats();
+    }
+    
+    // Render node to DOM
+    function renderNode(node) {
+      const el = document.createElement('div');
+      el.id = `dik-${node.id}`;
+      el.className = 'dik-node';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.width = `${node.w}px`;
+      el.style.height = `${node.h}px`;
+      el.style.transform = `translate(${node.x}px, ${node.y}px)`;
+      el.textContent = node.label || node.id;
+      
+      if (node.color) {
+        el.style.borderColor = node.color;
+        el.style.color = node.color;
+      }
+      
+      container.appendChild(el);
+    }
+    
+    // Handle interactions
+    container.addEventListener('pointerdown', (e) => {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const intent = dik.processInput('pointerdown', x, y);
+      
+      if (intent) {
+        totalIntents++;
+        addIntentToLog(intent);
+        
+        // Visual feedback
+        if (activeNode) {
+          const prevEl = document.getElementById(`dik-${activeNode.id}`);
+          if (prevEl) prevEl.classList.remove('active');
+        }
+        
+        const node = dik.nodes.get(intent.target);
+        const el = document.getElementById(`dik-${node.id}`);
+        if (el) el.classList.add('active');
+        activeNode = node;
+        
+        updateStats();
+      }
+    });
+    
+    // Add intent to log
+    function addIntentToLog(intent) {
+      const item = document.createElement('div');
+      item.className = 'intent-item';
+      item.innerHTML = `
+        <div class="intent-type">${intent.type}</div>
+        <div class="intent-target">target: ${intent.target}</div>
+        <div class="intent-payload">x: ${Math.round(intent.x)}, y: ${Math.round(intent.y)}, tick: ${intent.tick}</div>
+      `;
+      
+      intentLog.insertBefore(item, intentLog.firstChild);
+      
+      // Keep only last 20
+      while (intentLog.children.length > 20) {
+        intentLog.removeChild(intentLog.lastChild);
+      }
+    }
+    
+    // Update stats
+    function updateStats() {
+      document.getElementById('tick-count').textContent = dik.tick;
+      document.getElementById('intent-count').textContent = totalIntents;
+      document.getElementById('node-count').textContent = dik.nodes.size - 1; // excluding root
+    }
+    
+    // Update tree view
+    function updateTreeView() {
+      let tree = 'root\n';
+      for (const [id, node] of dik.nodes) {
+        if (id !== 'root') {
+          tree += `  └─ ${id} (${node.x},${node.y} ${node.w}×${node.h})\n`;
+        }
+      }
+      treeView.textContent = tree;
+    }
+    
+    // Global functions
+    window.clearLog = () => {
+      intentLog.innerHTML = '';
+      totalIntents = 0;
+      updateStats();
+    };
+    
+    window.addRandomNode = () => {
+      const id = `node-${Date.now()}`;
+      const x = Math.random() * (container.clientWidth - 150);
+      const y = Math.random() * (container.clientHeight - 100);
+      
+      const node = dik.addNode(id, x, y, 120, 80);
+      node.color = '#' + Math.floor(Math.random()*16777215).toString(16);
+      node.label = id.slice(0, 15);
+      
+      renderNode(node);
+      updateTreeView();
+      updateStats();
+    };
+    
+    window.resetTree = () => {
+      container.innerHTML = '';
+      dik.nodes.clear();
+      dik.nodes.set('root', {
+        id: 'root',
+        x: 0, y: 0, w: container.clientWidth, h: container.clientHeight,
+        children: []
+      });
+      initNodes();
+    };
+    
+    // FPS counter
+    let lastTime = performance.now();
+    let frames = 0;
+    
+    function updateFPS() {
+      frames++;
+      const now = performance.now();
+      
+      if (now - lastTime >= 1000) {
+        document.getElementById('fps').textContent = frames;
+        frames = 0;
+        lastTime = now;
+      }
+      
+      requestAnimationFrame(updateFPS);
+    }
+    updateFPS();
+    
+    // Frame loop
+    function loop() {
+      dik.runFrame();
+      requestAnimationFrame(loop);
+    }
+    loop();
+    
+    // Initialize
+    initNodes();
+    
+    console.log('[DIK Demo] Ready! Click on the nodes to interact.');
+  </script>
+</body>
+</html>

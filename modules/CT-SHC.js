@@ -104,11 +104,15 @@ window.__ext.register('ct-shc', function (api) {
     }
 
     // 2 — Timing drift
+    // FIX: Save the old baseline BEFORE calling measureTimingBaseline(), which
+    // overwrites _timingBaseline. Without this the comparison (_timingBaseline !== current)
+    // was always false (same object reference), so drift was never detected.
     try {
+      const previousBaseline = _timingBaseline;
       const current = await measureTimingBaseline();
-      if (_timingBaseline && _timingBaseline !== current) {
-        const drift     = Math.abs(current.mean - _timingBaseline.mean);
-        const threshold = _timingBaseline.stdDev * 3;
+      if (previousBaseline && previousBaseline !== current) {
+        const drift     = Math.abs(current.mean - previousBaseline.mean);
+        const threshold = previousBaseline.stdDev * 3;
         checks.timingStable = drift < threshold;
         if (!checks.timingStable)
           issues.push({ type: 'WARNING', msg: `Timing drift: ${drift.toFixed(3)} ms (σ×3 = ${threshold.toFixed(3)} ms)` });

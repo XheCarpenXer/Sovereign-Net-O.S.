@@ -117,7 +117,8 @@ window.__ext.register('adm', function (api) {
       const json = await res.json();
       return { response: json.response ?? '', tokens: json.eval_count ?? 0, simulated: false };
     } catch (_) {
-      // Stub responses by role for offline demo
+      // Offline stub — Ollama unavailable. Returns role-specific canned response.
+      // Callers can detect this via `simulated: true` in the return value.
       const stubs = {
         planner    : 'Based on analysis: 1) Init security protocols 2) Establish peer connections 3) Sync memory graph',
         executor   : 'Executing task sequence… Verified cryptographic signatures. Ready for next instruction.',
@@ -128,7 +129,6 @@ window.__ext.register('adm', function (api) {
       };
       const agent    = agents.get([...agents.keys()].find(k => agents.get(k).status === 'inferring') ?? '');
       const response = stubs[agent?.role] ?? 'Processing complete. Awaiting further instructions.';
-      await new Promise(r => setTimeout(r, 300 + Math.random() * 700));
       return { response, tokens: Math.floor(response.split(' ').length * 1.3), simulated: true };
     }
   }

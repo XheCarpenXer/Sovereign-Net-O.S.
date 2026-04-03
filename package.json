@@ -1,9 +1,10 @@
 {
   "name": "sovereign-net-os",
   "productName": "Sovereign Net OS",
-  "version": "0.1.0",
-  "description": "Sovereign Net OS — Decentralized Internet Node Desktop App",
+  "version": "0.2.0",
+  "description": "Sovereign Net OS — Decentralized Internet Node Desktop App with DIK (Deterministic Interaction Kernel)",
   "main": "src/main.js",
+  "type": "module",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
@@ -13,11 +14,15 @@
     "build:all": "electron-builder -mwl"
   },
   "dependencies": {
-    "kubo-rpc-client": "^4.1.0"
+    "kubo-rpc-client": "^4.1.0",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "electron": "^30.0.0",
     "electron-builder": "^24.9.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "build": {
     "appId": "net.sovereign.os",

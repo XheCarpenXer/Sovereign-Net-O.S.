@@ -111,12 +111,6 @@ contextBridge.exposeInMainWorld('ipfs', {
   /** Remove all pubsub message listeners */
   offPubsubMsg: () => ipcRenderer.removeAllListeners('pubsub:msg'),
 
-  /** Subscribe to a pubsub topic (returns a ReadableStream via polling — see ipfsAdapter.js) */
-  pubsubSub: (topic) => ipcRenderer.invoke('ipfs:api', {
-    path: '/pubsub/sub',
-    query: { arg: topic }
-  }),
-
   /** IPNS publish — tie the current node's key to a CID */
   namePublish: (cid) => ipcRenderer.invoke('ipfs:api', { path: '/name/publish', query: { arg: cid } }),
 
@@ -176,6 +170,31 @@ contextBridge.exposeInMainWorld('peerRep', {
 
   /** Listen for auto-ban events triggered by the main process */
   onBanned: (cb) => ipcRenderer.on('peer:banned', (_e, data) => cb(data)),
+});
+
+// ── Kernel Dispatch Bridge ─────────────────────────────────────────────────
+// Exposes the kernel IPC to the renderer via KernelClient (kernel-client.js).
+// All state mutations in Electron go through this bridge.
+contextBridge.exposeInMainWorld('kernel', {
+  /** Dispatch a typed event through the kernel. Returns { ok, result, error, entry }. */
+  dispatch: (event) => ipcRenderer.invoke('kernel:dispatch', event),
+
+  /** Read-only query. Returns { ok, result }. */
+  query: (type, ...args) => ipcRenderer.invoke('kernel:query', { type, args }),
+
+  /** Full kernel snapshot. Returns { ok, result }. */
+  snapshot: () => ipcRenderer.invoke('kernel:snapshot'),
+
+  /**
+   * Register a listener for kernel events pushed from the main process.
+   * Callback receives the dispatched event envelope { type, payload, result, ... }.
+   * NOTE: Currently the main process does not push events proactively, but this
+   * hook is here so kernel-client.js can subscribe without polling.
+   */
+  onDispatch: (cb) => ipcRenderer.on('kernel:event', (_e, event) => cb(event)),
+
+  /** Remove all kernel event listeners */
+  offDispatch: () => ipcRenderer.removeAllListeners('kernel:event'),
 });
 
 // ── Bandwidth Constraint API ───────────────────────────────────────────────

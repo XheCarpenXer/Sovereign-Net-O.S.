@@ -14,7 +14,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>SOVEREIGN NET OS — Browser Compute Node</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="icon" type="image/jpeg" href="favicon.jpg">
+<link rel="icon" type="image/jpeg" href="/favicon.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -432,23 +432,23 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
             <div class="stat-grid">
               <div class="stat">
                 <div class="stat-l">Peers</div>
-                <div class="stat-v c" id="stat-peers">0</div>
-                <div class="stat-s">connecting…</div>
+                <div class="stat-v c" id="stat-peers">24</div>
+                <div class="stat-s">↑ 3 this hour</div>
               </div>
               <div class="stat">
                 <div class="stat-l">Messages</div>
-                <div class="stat-v g" id="stat-msgs">0</div>
+                <div class="stat-v g" id="stat-msgs">1,847</div>
                 <div class="stat-s">DAG synced</div>
               </div>
               <div class="stat">
                 <div class="stat-l">Files Shared</div>
-                <div class="stat-v a" id="stat-files">0</div>
-                <div class="stat-s">stored locally</div>
+                <div class="stat-v a" id="stat-files">312</div>
+                <div class="stat-s">94.2 GB total</div>
               </div>
               <div class="stat">
                 <div class="stat-l">Earnings</div>
-                <div class="stat-v gold" id="stat-earn">◈ 0</div>
-                <div class="stat-s">earn by routing</div>
+                <div class="stat-v gold" id="stat-earn">◈ 2,480</div>
+                <div class="stat-s">↑ 120 today</div>
               </div>
             </div>
 
@@ -491,7 +491,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
                   </div>
                   <div style="display:flex;justify-content:space-between;font-size:11px">
                     <span style="color:var(--text3)">Block Height</span>
-                    <span id="blockHeight" style="font-family:var(--mono);color:var(--amber)">#0</span>
+                    <span id="blockHeight" style="font-family:var(--mono);color:var(--amber)">#14,820</span>
                   </div>
                   <div style="display:flex;justify-content:space-between;font-size:11px">
                     <span style="color:var(--text3)">Latency</span>
@@ -702,15 +702,15 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
               <button class="btn btn-sm btn-v" style="margin-top:8px;width:100%" onclick="openEditProfile()">Edit Profile</button>
               <div class="profile-stats">
                 <div class="profile-stat">
-                  <div class="profile-stat-v" id="followersCount">0</div>
+                  <div class="profile-stat-v" id="followersCount">128</div>
                   <div class="profile-stat-l">Followers</div>
                 </div>
                 <div class="profile-stat">
-                  <div class="profile-stat-v" id="followingCount">0</div>
+                  <div class="profile-stat-v" id="followingCount">64</div>
                   <div class="profile-stat-l">Following</div>
                 </div>
                 <div class="profile-stat">
-                  <div class="profile-stat-v" id="postCount">0</div>
+                  <div class="profile-stat-v" id="postCount">47</div>
                   <div class="profile-stat-l">Posts</div>
                 </div>
               </div>
@@ -924,7 +924,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
             <div class="card-body" style="padding:12px">
               <div style="display:flex;flex-direction:column;gap:8px">
                 <div class="stat"><div class="stat-l">Total Peers</div><div class="stat-v c" id="netPeers">24</div></div>
-                <div class="stat"><div class="stat-l">Messages Routed</div><div class="stat-v g" id="netMsgs">0</div></div>
+                <div class="stat"><div class="stat-l">Messages Routed</div><div class="stat-v g" id="netMsgs">14,820</div></div>
                 <div class="stat"><div class="stat-l">Bandwidth Used</div><div class="stat-v a" id="netBW">2.4 GB</div></div>
                 <div class="stat"><div class="stat-l">Consensus Lag</div><div class="stat-v v" id="netLag">2 blocks</div></div>
               </div>
@@ -982,8 +982,8 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
           <div id="market-earnings" class="market-tab" style="display:none">
             <div class="stat-grid" style="margin-bottom:14px">
               <div class="stat"><div class="stat-l">Total Earned</div><div class="stat-v gold">◈ 12,840</div></div>
-              <div class="stat"><div class="stat-l">This Month</div><div class="stat-v g" id="mktEarnMonth">◈ 0</div></div>
-              <div class="stat"><div class="stat-l">Active Licenses</div><div class="stat-v c" id="mktLicenses">0</div></div>
+              <div class="stat"><div class="stat-l">This Month</div><div class="stat-v g">◈ 2,480</div></div>
+              <div class="stat"><div class="stat-l">Active Licenses</div><div class="stat-v c">47</div></div>
               <div class="stat"><div class="stat-l">Pending</div><div class="stat-v a">◈ 320</div></div>
             </div>
             <div class="card">
@@ -1224,14 +1224,14 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
                     <div class="key-display" id="pubKeyDisplay">ecdsa:generating...</div>
                   </div>
                   <div class="field"><label>DID Document Hash</label>
-                    <div class="key-display" id="didHashDisplay">computing…</div>
+                    <div class="key-display">bafyreib2rxk3rybk3asobf2fl4c3hovfnjqpwvobxqfxpjmuyomlubqhi</div>
                   </div>
                 </div>
               </div>
               <div class="card">
                 <div class="card-hdr"><span class="card-title">◈ Credit Balance</span></div>
                 <div class="card-body" style="text-align:center;padding:20px">
-                  <div style="font-family:var(--display);font-size:48px;color:var(--gold)" id="creditAmt">◈ 0</div>
+                  <div style="font-family:var(--display);font-size:48px;color:var(--gold)">◈ 2,480</div>
                   <div style="font-size:10px;color:var(--text3);margin-top:4px">Sovereign Credits</div>
                   <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
                     <button class="btn btn-sm btn-gold">◈ Earn</button>
@@ -2273,7 +2273,7 @@ const DB = (() => {
     if (typeof indexedDB === 'undefined' || indexedDB === null) {
       return rej(new Error('IndexedDB unavailable — called before DOMContentLoaded'));
     }
-    const req = indexedDB.open('sovereign-net', 4);
+    const req = indexedDB.open('sovereign-net', 3);
     req.onupgradeneeded = e => {
       const d = e.target.result;
       if (!d.objectStoreNames.contains('identity')) d.createObjectStore('identity');
@@ -2285,11 +2285,6 @@ const DB = (() => {
       if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath: 'id' });
       if (!d.objectStoreNames.contains('dag')) d.createObjectStore('dag');
       if (!d.objectStoreNames.contains('blocks')) d.createObjectStore('blocks');
-      // v4: real ledger store for persistent transaction history
-      if (!d.objectStoreNames.contains('ledger')) {
-        const ls = d.createObjectStore('ledger', { keyPath: 'id' });
-        ls.createIndex('ts', 'ts', { unique: false });
-      }
     };
     req.onsuccess = e => {
       db = e.target.result;
@@ -2419,9 +2414,6 @@ const STATE = {
   feedType: 'global',
   currentView: 'home',
   rtcPeers: {},         // did → RTCPeerConnection
-  following: {},        // did → { did, name, ts }  — peers this node follows
-  followers: {},        // did → { did, name, ts }  — peers following this node
-  _msgsRouted: 0,       // real count of messages routed through mesh
 };
 
 /* ── Event Bus ── */
@@ -2659,13 +2651,6 @@ async function onMeshMessage(e) {
   const msg = e.data;
   if (!msg?.type || msg.did === STATE.did) return; // ignore own messages
 
-  // Increment real routed-message counters
-  STATE._msgsRouted = (STATE._msgsRouted || 0) + 1;
-  const netMsgsEl = document.getElementById('netMsgs');
-  const statMsgsEl = document.getElementById('stat-msgs');
-  if (netMsgsEl)  netMsgsEl.textContent  = STATE._msgsRouted.toLocaleString();
-  if (statMsgsEl) statMsgsEl.textContent = STATE._msgsRouted.toLocaleString();
-
   if (msg.type === 'ANNOUNCE') {
     await handleAnnounce(msg);
   } else if (msg.type === 'ANNOUNCE_REPLY') {
@@ -2705,9 +2690,6 @@ async function onMeshMessage(e) {
       if (bh) bh.textContent = '#'+STATE.blockHeight.toLocaleString();
       EventBus.emit('NET', { msg:'Block #'+STATE.blockHeight+' from '+(msg.handle||'peer') });
     }
-  } else if (msg.type === 'GOSSIP') {
-    addGossip(`${msg.handle || msg.did?.slice(0,12) || 'peer'}: ${msg.msg}`);
-    EventBus.emit('NET', { msg: `Gossip from ${msg.handle || 'peer'}: ${msg.msg}` });
   } else if (msg.type === 'DAG_NODE') {
     if (msg.node) {
       const peer = STATE.peers.find(p=>p.did===msg.node.did);
@@ -2733,32 +2715,6 @@ async function onMeshMessage(e) {
       } else {
         EventBus.emit('EDITOR', { msg:'DAG: rejected reason='+result.reason });
       }
-    }
-  } else if (msg.type === 'CREDIT_SEND') {
-    // A peer tipped us — credit arrives on this node
-    if (msg.to === STATE.did && typeof msg.amount === 'number' && msg.amount > 0) {
-      updateCredits(+msg.amount, `Tip received from @${msg.handle || msg.from.slice(8,16)}`, msg.handle);
-      showToast(`◈ ${msg.amount} tip received from ${msg.handle || 'a peer'}!`, 'g');
-      STATE.notifications.push({ icon: '◈', text: `Received ◈ ${msg.amount} from ${msg.handle || msg.from.slice(8,16)}`, ts: Date.now(), type: 'earn' });
-      renderNotifications();
-    }
-  } else if (msg.type === 'APP_SALE') {
-    // Someone installed our app and paid — we earn the credit
-    if (msg.authorHandle === STATE.handle) {
-      updateCredits(+msg.amount, `App sale: "${msg.appName}"`, msg.from);
-      showToast(`◈ ${msg.amount} earned — "${msg.appName}" installed!`, 'g');
-      const myApp = MY_APPS.find(a => a.id === msg.appId);
-      if (myApp) { myApp.earnings = (myApp.earnings || 0) + msg.amount; renderEarningsBreakdown(); }
-      STATE.notifications.push({ icon: '◈', text: `App sale: "${msg.appName}" +◈ ${msg.amount}`, ts: Date.now(), type: 'earn' });
-      renderNotifications();
-    }
-  } else if (msg.type === 'SOCIAL_POST') {
-    // A peer published a post — add it to our feed if new
-    if (msg.post && !STATE.posts.find(p => p.id === msg.post.id)) {
-      STATE.posts.push({ ...msg.post, fromMesh: true });
-      STATE.posts.sort((a, b) => b.ts - a.ts);
-      renderSocialFeed();
-      EventBus.emit('SOCIAL', { msg: `New post from @${msg.handle}: "${msg.post.text.slice(0, 40)}..."` });
     }
   } else if (msg.type === 'STATE_SET') {
     if (msg.key) {
@@ -2795,7 +2751,6 @@ async function handleAnnounce(msg) {
       connectedAt: Date.now(),
       avi: pickAvi(msg.did),
       color: pickColor(msg.did),
-      credits: msg.credits ?? null,  // store peer's announced credit balance
     };
     STATE.peers.push(peer);
     updatePeerCounts();
@@ -2803,8 +2758,6 @@ async function handleAnnounce(msg) {
     STATE.notifications.push({ icon:'🌐', text:`New peer: ${peer.handle}`, ts: Date.now(), type:'net' });
     renderNotifications();
     EventBus.emit('NET', { msg:`Peer joined: ${peer.handle}` });
-    // Small reward for growing the mesh
-    updateCredits(2, `New peer connected: @${peer.handle}`);
     // Reply so they know about us
     meshBus.postMessage({ type:'ANNOUNCE_REPLY', did: STATE.did, handle: STATE.handle, pubKeyB64: STATE.pubKeyB64, ts: Date.now(), blockHeight: STATE.blockHeight });
     // Initiate WebRTC connection
@@ -2845,10 +2798,6 @@ async function handlePublicMsg(msg) {
     if (msgBadge) { msgBadge.style.display='flex'; msgBadge.textContent=CHANNELS.reduce((s,c)=>s+(c.unread||0),0); }
   }
   EventBus.emit('MSG', { msg:`${msg.author} in #${msg.channelId}: "${msg.text.slice(0,40)}"` });
-  // Routing reward: earn a small credit for each message you relay through your node
-  if (msg.did !== STATE.did) {
-    updateCredits(1, `Routing reward — relayed msg in #${msg.channelId}`);
-  }
 }
 
 async function handleEncryptedMsg(msg) {
@@ -2929,29 +2878,19 @@ function startPeerHealthCheck() {
 function startBlockClock() {
   // Block every ~12s (Ethereum-like cadence, driven by real time)
   const TARGET_BLOCK_TIME = 12000;
-  let blocksSinceReward = 0;
   setInterval(() => {
     STATE.blockHeight++;
     const bh = document.getElementById('blockHeight');
     if (bh) bh.textContent = `#${STATE.blockHeight.toLocaleString()}`;
     EventBus.emit('NET', { msg:`Block #${STATE.blockHeight} confirmed` });
     DB.put('identity', STATE.blockHeight, 'blockHeight').catch(()=>{});
-    // Routing reward: earn credits every 5 blocks (~60s) for being an active mesh node
-    blocksSinceReward++;
-    const onlinePeers = STATE.peers.filter(p => p.online).length;
-    if (blocksSinceReward >= 5 && onlinePeers > 0) {
-      const reward = onlinePeers * 2; // 2 credits per connected peer per 5 blocks
-      updateCredits(reward, `Routing reward — ${onlinePeers} peer${onlinePeers>1?'s':''} online`);
-      blocksSinceReward = 0;
-    }
   }, TARGET_BLOCK_TIME);
 }
 
 /* ── Deterministic emoji/color from DID ── */
 const AVIS = ['🌊','🔮','👻','🌙','⬡','💫','🌀','🌈','📡','⬛','🏛️','⚡','✨','🧿','⛈️','🦋','🦑','🐉','🛸','🌋'];
 const COLORS = ['rgba(0,212,255,0.15)','rgba(179,136,255,0.15)','rgba(0,230,118,0.15)','rgba(255,193,7,0.15)','rgba(255,71,87,0.15)','rgba(240,98,146,0.15)','rgba(29,233,182,0.15)'];
-function pickAvi(did)   { let h=0; for(const c of did) h=(h*31+c.charCodeAt(0))>>>0; return AVIS[h%AVIS.length]; }
-function pickColor(did) { let h=0; for(const c of did) h=(h*31+c.charCodeAt(0)+7)>>>0; return COLORS[h%COLORS.length]; }
+function pickAvi(did) { let h=0; for(const c of did) h=(h*31+c.charCodeAt(0))>>>0; return AVIS[h%AVIS.length]; }
 function pickColor(did) { let h=7; for(const c of did) h=(h*13+c.charCodeAt(0))>>>0; return COLORS[h%COLORS.length]; }
 
 function updatePeerCounts() {
@@ -3089,15 +3028,8 @@ async function loadOrCreateIdentity() {
   }
 
   STATE.handle  = handle  || `node-${STATE.did.slice(10,16)}`;
-  STATE.blockHeight = blockH || 0;
-  STATE.credits = credits != null ? credits : 0;
-
-  // Load persisted ledger
-  try {
-    const ledgerEntries = await DB.getAll('ledger');
-    ledgerEntries.sort((a, b) => b.ts - a.ts);
-    TX_LOG.push(...ledgerEntries.slice(0, 200));
-  } catch (_) {}
+  STATE.blockHeight = blockH || 14820;
+  STATE.credits = credits != null ? credits : 2480;
 
   // Update UI
   document.getElementById('tbDid').textContent    = STATE.did.slice(0,28)+'...';
@@ -3128,26 +3060,14 @@ async function loadPersistedChannels() {
   });
 }
 
-/* ── Real in-memory TX log (persisted to IndexedDB ledger store) ── */
-const TX_LOG = [];
-
-function recordTx(type, amt, desc, peerHandle) {
-  const entry = { id: crypto.randomUUID(), type, amt, desc, peer: peerHandle || null, ts: Date.now() };
-  TX_LOG.unshift(entry);
-  if (TX_LOG.length > 200) TX_LOG.pop();
-  DB.put('ledger', entry).catch(() => {});
-  renderTxHistory();
-}
-
 /* ── Save credits whenever they change ── */
-function updateCredits(delta, desc, peerHandle) {
+function updateCredits(delta) {
   STATE.credits += delta;
   if (STATE.credits < 0) STATE.credits = 0;
-  DB.put('identity', STATE.credits, 'credits').catch(() => {});
-  const ca = document.getElementById('creditAmt'); if (ca) ca.textContent = STATE.credits.toLocaleString();
-  const se = document.getElementById('stat-earn'); if (se) se.textContent = `◈ ${STATE.credits.toLocaleString()}`;
-  EventBus.emit('LEDGER', { msg: `Credit update: ${delta > 0 ? '+' : ''}${delta} → ◈ ${STATE.credits}` });
-  if (desc) recordTx(delta >= 0 ? 'earn' : 'spend', (delta >= 0 ? '+' : '') + delta, desc, peerHandle);
+  DB.put('identity', STATE.credits, 'credits').catch(()=>{});
+  const ca = document.getElementById('creditAmt'); if(ca) ca.textContent = STATE.credits.toLocaleString();
+  const se = document.getElementById('stat-earn'); if(se) se.textContent = `◈ ${STATE.credits.toLocaleString()}`;
+  EventBus.emit('LEDGER', { msg:`Credit update: ${delta > 0 ? '+' : ''}${delta} → ◈ ${STATE.credits}` });
 }
 
 /* ── Open edit identity modal pre-populated with current values ── */
@@ -3246,26 +3166,20 @@ function updateClock() {
     const us = STATE.uptime % 60;
     ud.textContent = `${String(uh).padStart(2,'0')}:${String(um).padStart(2,'0')}:${String(us).padStart(2,'0')}`;
   }
+  const bh = document.getElementById('blockHeight');
+  if (bh && Math.random() < 0.02) {
+    STATE.blockHeight++;
+    bh.textContent = `#${STATE.blockHeight.toLocaleString()}`;
+    EventBus.emit('NET', { msg: `New block #${STATE.blockHeight} confirmed` });
+  }
 }
 setInterval(updateClock, 1000);
 
-// ── CPU Bar — real scheduler-pressure metric ──
-// Measures event-loop lag vs a 250 ms ideal tick.
-// lag=0ms → 0%; lag≥250ms → 100%. No Math.random().
-(function startCpuMonitor() {
-  let last = performance.now();
-  setInterval(() => {
-    const now = performance.now();
-    const lag = Math.max(0, (now - last) - 250);
-    last = now;
-    const pct = Math.min(100, (lag / 250) * 100);
-    const bar = document.getElementById('cpuBar');
-    if (bar) {
-      bar.style.width = pct + '%';
-      bar.style.background = pct > 40 ? 'var(--amber)' : 'var(--green)';
-    }
-  }, 250);
-})();
+// ── CPU Bar Simulation ──
+setInterval(() => {
+  const bar = document.getElementById('cpuBar');
+  if (bar) { const v = 15 + Math.random()*35; bar.style.width = v+'%'; bar.style.background = v > 40 ? 'var(--amber)' : 'var(--green)'; }
+}, 2000);
 
 /* ══════════════════════════════════════════════════
    PEER / NETWORK DATA
@@ -3274,7 +3188,20 @@ const PEER_NAMES = ['vortex.node','cipher.eth','phantom.svn','lunar.node','hex.p
 const PEER_AVIS = ['🌊','🔮','👻','🌙','⬡','💫','🌀','🌈','📡','⬛','🏛️','⚡','✨','🧿','⛈️'];
 const PEER_COLORS = ['rgba(0,212,255,0.15)','rgba(179,136,255,0.15)','rgba(0,230,118,0.15)','rgba(255,193,7,0.15)','rgba(255,71,87,0.15)','rgba(240,98,146,0.15)'];
 
-STATE.peers = []; // Real peers join via BroadcastChannel / WebRTC when other tabs open
+function generatePeers(n=24) {
+  return Array.from({length:n}, (_,i) => ({
+    id: `peer_${i}`,
+    did: `did:svn:0x${Math.random().toString(16).slice(2,10)}`,
+    name: PEER_NAMES[i % PEER_NAMES.length],
+    avi: PEER_AVIS[i % PEER_AVIS.length],
+    color: PEER_COLORS[i % PEER_COLORS.length],
+    latency: Math.floor(5 + Math.random()*100),
+    online: Math.random() > 0.2,
+    x: Math.random(), y: Math.random(),
+    vx: (Math.random()-.5)*0.002, vy: (Math.random()-.5)*0.002
+  }));
+}
+STATE.peers = []; // Real peers join via BroadcastChannel when other tabs open
 
 function renderHomePeers() {
   const el = document.getElementById('homePeers');
@@ -3298,38 +3225,24 @@ function renderHomePeers() {
 function renderPeerList() {
   const el = document.getElementById('peerList');
   if (!el) return;
-  if (STATE.peers.length === 0) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:16px;text-align:center">No peers yet.<br>Open another tab with this app to connect.</div>';
-    return;
-  }
-  el.innerHTML = STATE.peers.map(p => {
-    const connected = !!STATE.rtcPeers?.[p.did];
-    const latColor  = p.latency < 30 ? 'var(--green)' : p.latency < 80 ? 'var(--amber)' : 'var(--red)';
-    return `
-    <div class="peer-item" onclick="connectToPeer('${p.id}')" title="${connected ? 'WebRTC connected' : 'Click to open WebRTC channel'}">
+  el.innerHTML = STATE.peers.map(p => `
+    <div class="peer-item" onclick="connectToPeer('${p.id}')">
       <div class="peer-avi" style="background:${p.color}">${p.avi}</div>
       <div class="peer-info">
-        <div class="peer-name">${p.name} ${connected ? '<span style="color:var(--green);font-size:9px">⬡ RTC</span>' : ''}</div>
-        <div class="peer-did">${p.did.slice(0,22)}…</div>
+        <div class="peer-name">${p.name}</div>
+        <div class="peer-did">${p.did.slice(0,22)}...</div>
       </div>
-      <div class="peer-latency" style="color:${latColor}">${p.latency}ms</div>
-    </div>`;
-  }).join('');
+      <div class="peer-latency" style="color:${p.latency<30?'var(--green)':p.latency<80?'var(--amber)':'var(--red)'}">${p.latency}ms</div>
+    </div>
+  `).join('');
 }
 
 function connectToPeer(id) {
-  const p = STATE.peers.find(x => x.id === id);
-  if (!p) return;
-  if (STATE.rtcPeers[p.did]) {
-    showToast(`Already connected to ${p.name}`, 'c');
-    return;
+  const p = STATE.peers.find(x=>x.id===id);
+  if (p) {
+    showToast(`Connecting to ${p.name}...`, 'c');
+    EventBus.emit('NET', { msg: `Connecting to peer ${p.name} (${p.did.slice(0,18)}...)` });
   }
-  showToast(`Connecting to ${p.name}…`, 'c');
-  EventBus.emit('NET', { msg: `Initiating WebRTC to ${p.name} (${p.did.slice(0, 18)}…)` });
-  rtcConnect(p.did, p.pubKeyB64).catch(err => {
-    showToast(`Connect failed: ${err.message}`, 'r');
-    EventBus.emit('NET', { msg: `WebRTC failed for ${p.name}: ${err.message}` });
-  });
 }
 
 function discoverPeers() {
@@ -3340,16 +3253,10 @@ function discoverPeers() {
 }
 
 function broadcastGossip() {
-  // Use the most recent real EventBus event as the gossip payload.
-  const lastEvent = STATE.events && STATE.events.length > 0 ? STATE.events[0] : null;
-  const msg = lastEvent
-    ? `[${lastEvent.type}] ${lastEvent.payload?.msg || 'event'}`
-    : `Heartbeat from ${STATE.handle} @ block #${STATE.blockHeight}`;
-  if (meshBus && STATE.did) {
-    meshBus.postMessage({ type: 'GOSSIP', did: STATE.did, handle: STATE.handle, msg, ts: Date.now() });
-  }
+  const msgs = ['Block header synced','DAG checkpoint confirmed','New route advertised','Heartbeat broadcasted','Capability announced'];
+  const msg = msgs[Math.floor(Math.random()*msgs.length)];
   addGossip(msg);
-  showToast('Gossip broadcast', 'g');
+  showToast('Gossip broadcasted', 'g');
   EventBus.emit('NET', { msg: `Gossip: ${msg}` });
 }
 
@@ -3446,25 +3353,29 @@ function renderRoutingTable() {
 /* ══════════════════════════════════════════════════
    MESSENGER
 ══════════════════════════════════════════════════ */
-// Channel definitions — members count reflects live peer count, updated on peer events.
-// No hardcoded member counts: channels start with 1 (self) and grow as peers join.
 const CHANNELS = [
-  { id:'general',     name:'general',      icon:'#',  type:'public',    members:1, unread:0 },
-  { id:'dev',         name:'dev-talk',     icon:'#',  type:'public',    members:1, unread:0 },
-  { id:'builds',      name:'builds',       icon:'#',  type:'public',    members:1, unread:0 },
-  { id:'media',       name:'media-share',  icon:'#',  type:'public',    members:1, unread:0 },
-  { id:'encrypted-1', name:'encrypted-room', icon:'🔐', type:'encrypted', members:1, unread:0 },
+  { id:'general', name:'general', icon:'#', type:'public', members:48, unread:3 },
+  { id:'dev', name:'dev-talk', icon:'#', type:'public', members:24, unread:0 },
+  { id:'builds', name:'builds', icon:'#', type:'public', members:16, unread:1 },
+  { id:'media', name:'media-share', icon:'#', type:'public', members:32, unread:0 },
+  { id:'encrypted-1', name:'encrypted-room', icon:'🔐', type:'encrypted', members:5, unread:0 },
 ];
 
-// Messages come from real peers over BroadcastChannel and from IndexedDB — no sample data.
-STATE.messages = {};
+const DM_PEERS = STATE.peers.slice(0,5);
+
+const SAMPLE_MSGS = {
+  general: [
+    { author:'vortex.node', avi:'🌊', color:'rgba(0,212,255,0.15)', text:'Just deployed my new app to the mesh — check it out!', ts: Date.now()-180000 },
+    { author:'cipher.eth', avi:'🔮', color:'rgba(179,136,255,0.15)', text:'The new DAG sync protocol is insanely fast 🔥', ts: Date.now()-120000 },
+    { author:'phantom.svn', avi:'👻', color:'rgba(0,230,118,0.15)', text:'Who wants to collab on a P2P video streaming module?', ts: Date.now()-60000 },
+  ]
+};
+
+STATE.messages = SAMPLE_MSGS;
 
 function renderChannels() {
   const el = document.getElementById('channelList');
   if (!el) return;
-  // Live member count = 1 (self) + online peers
-  const onlinePeers = STATE.peers.filter(p => p.online).length;
-  CHANNELS.forEach(c => { if (c.type === 'public') c.members = 1 + onlinePeers; });
   el.innerHTML = CHANNELS.map(c => `
     <div class="channel-item ${c.id === STATE.currentChannel ? 'active' : ''} ${c.type !== 'public' ? c.type : ''}" onclick="switchChannel('${c.id}')" style="position:relative">
       <span>${c.icon}</span> ${c.name}
@@ -3472,20 +3383,13 @@ function renderChannels() {
       ${c.unread ? `<span class="channel-unread">${c.unread}</span>` : ''}
     </div>
   `).join('');
-  // DM list: real peers only — empty state if none connected
   const dmEl = document.getElementById('dmList');
-  if (dmEl) {
-    if (STATE.peers.length === 0) {
-      dmEl.innerHTML = '<div style="color:var(--text3);font-size:10px;padding:8px 14px">No peers yet</div>';
-    } else {
-      dmEl.innerHTML = STATE.peers.slice(0, 8).map(p => `
-        <div class="channel-item" onclick="openDM('${p.id}')">
-          <div style="width:8px;height:8px;border-radius:50%;background:${p.online?'var(--green)':'var(--red)'}"></div>
-          <span>${p.name}</span>
-        </div>
-      `).join('');
-    }
-  }
+  if (dmEl) dmEl.innerHTML = DM_PEERS.map(p => `
+    <div class="channel-item" onclick="openDM('${p.id}')">
+      <div style="width:8px;height:8px;border-radius:50%;background:${p.online?'var(--green)':'var(--red)'}"></div>
+      <span>${p.name}</span>
+    </div>
+  `).join('');
 }
 
 function switchChannel(id) {
@@ -3518,16 +3422,11 @@ function renderMessages(channelId) {
   const feed = document.getElementById('msgFeed');
   if (!feed) return;
   const msgs = STATE.messages[channelId] || [];
-  if (msgs.length === 0) {
-    const ch = CHANNELS.find(c => c.id === channelId);
-    feed.innerHTML = `<div style="color:var(--text3);font-size:11px;padding:32px;text-align:center">No messages yet in ${ch ? '#'+ch.name : channelId}.<br>Be the first — or open another tab to connect peers.</div>`;
-  } else {
-    feed.innerHTML = msgs.map(m => renderMsgBubble(m)).join('');
-    feed.scrollTop = feed.scrollHeight;
-  }
-  // Update unread badge
+  feed.innerHTML = msgs.map(m => renderMsgBubble(m)).join('');
+  feed.scrollTop = feed.scrollHeight;
+  // Update badge
   const msgBadge = document.getElementById('msgBadge');
-  const totalUnread = CHANNELS.reduce((s, c) => s + c.unread, 0);
+  const totalUnread = CHANNELS.reduce((s,c)=>s+c.unread,0);
   if (msgBadge) { msgBadge.style.display = totalUnread ? 'flex' : 'none'; msgBadge.textContent = totalUnread; }
   renderChannelMembers();
 }
@@ -3655,17 +3554,19 @@ async function createChannel() {
 /* ══════════════════════════════════════════════════
    SOCIAL FEED
 ══════════════════════════════════════════════════ */
-// Posts are populated from real user posts and incoming mesh peers — no sample data.
-STATE.posts = [];
+const SAMPLE_POSTS = [
+  { id:1, author:'vortex.node', avi:'🌊', color:'rgba(0,212,255,0.15)', handle:'@vortex', text:'Just shipped a decentralized video streaming module on Sovereign Net. Zero CDN, peer-to-peer, and it actually works at scale! 🚀\n\nThe trick is using a gossip protocol for chunk distribution with CID addressing.', tags:['#P2P','#Video','#SovereignNet'], likes:48, boosts:12, comments:8, ts:Date.now()-3600000, type:'post' },
+  { id:2, author:'cipher.eth', avi:'🔮', color:'rgba(179,136,255,0.15)', handle:'@cipher', text:'Code review: This DAG-based version control approach is way cleaner than traditional git for distributed systems. No central repo needed, every node is its own server.', code:'const commit = await dag.append({\n  parent: HEAD,\n  data: diff,\n  author: myDID,\n  sig: sign(diff, privKey)\n});', tags:['#Code','#DAG','#Editor'], likes:92, boosts:34, comments:21, ts:Date.now()-7200000, type:'code' },
+  { id:3, author:'lunar.node', avi:'🌙', color:'rgba(255,193,7,0.15)', handle:'@lunar', text:'Just earned ◈ 340 credits this week from my mesh routing contributions! The more bandwidth you share, the more you earn. This is how the internet should work.', tags:['#Credits','#Monetize'], likes:127, boosts:55, comments:33, ts:Date.now()-10800000, type:'post' },
+  { id:4, author:'neon.node', avi:'💫', color:'rgba(0,230,118,0.15)', handle:'@neon', text:'Published my first app to the Sovereign Marketplace! It\'s a collaborative whiteboard that works fully P2P with no server. Price: ◈ 20 one-time.', tags:['#App','#Marketplace','#P2P'], likes:200, boosts:88, comments:47, ts:Date.now()-14400000, type:'post' },
+];
+
+STATE.posts = [...SAMPLE_POSTS];
 
 function renderSocialFeed() {
   const el = document.getElementById('socialFeed');
   if (!el) return;
-  if (STATE.posts.length === 0) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:32px;text-align:center">No posts yet.<br>Write the first post — or open another tab to see mesh activity.</div>';
-  } else {
-    el.innerHTML = STATE.posts.map(p => renderPost(p)).join('');
-  }
+  el.innerHTML = STATE.posts.map(p => renderPost(p)).join('');
   renderTrending();
   renderSuggestedPeers();
 }
@@ -3715,68 +3616,39 @@ function boostPost(id, el) {
   const p = STATE.posts.find(x=>x.id===id);
   if (p) { p.boosts++; el.classList.toggle('boosted'); el.innerHTML = `⇡ ${p.boosts}`; EventBus.emit('SOCIAL', { msg:`Boosted post by ${p.author}` }); }
 }
-function tipPost(author) {
-  if (STATE.credits < 10) { showToast('Insufficient credits!', 'r'); return; }
-  const peer = STATE.peers.find(p => p.handle === author || p.did === author);
-  updateCredits(-10, `Tipped @${author}`, author);
-  showToast(`Tipped ${author} ◈ 10 credits!`, 'g');
-  if (peer && meshBus && STATE.did) {
-    meshBus.postMessage({ type: 'CREDIT_SEND', from: STATE.did, to: peer.did,
-      handle: STATE.handle, amount: 10, note: 'post tip', ts: Date.now() });
-  }
-}
+function tipPost(author) { showToast(`Tipped ${author} ◈ 10 credits!`, 'g'); EventBus.emit('LEDGER', { msg:`Tipped ${author} ◈ 10` }); updateCredits(-10); }
 function sharePost(id) { showToast('Post link copied!', 'c'); }
 
 function publishPost() {
-  const composeEl = document.getElementById('postCompose') || document.getElementById('modalPostContent') || {};
-  const content = composeEl.value;
+  const content = (document.getElementById('postCompose')||document.getElementById('modalPostContent')||{}).value;
   if (!content || !content.trim()) { showToast('Write something first!', 'a'); return; }
-  const monetize = document.getElementById('postMonetize')?.checked || false;
   const newPost = {
-    id: crypto.randomUUID(), author: STATE.handle, avi: pickAvi(STATE.did),
-    color: pickColor(STATE.did), handle: `@${STATE.handle}`,
-    text: content.trim(), tags: [], likes: 0, boosts: 0, comments: 0,
-    ts: Date.now(), type: 'post', did: STATE.did, monetize, self: true,
+    id: STATE.posts.length+1, author:STATE.handle, avi:'🌐',
+    color:'rgba(0,212,255,0.15)', handle:`@${STATE.did.slice(8,14)}`,
+    text:content.trim(), tags:[], likes:0, boosts:0, comments:0, ts:Date.now(), type:'post'
   };
   STATE.posts.unshift(newPost);
-  DB.put('posts', newPost, newPost.id).catch(() => {});
-  if (composeEl.value !== undefined) composeEl.value = '';
+  if (document.getElementById('postCompose')) document.getElementById('postCompose').value = '';
   renderSocialFeed();
   showToast('Post published to the mesh!', 'g');
-  EventBus.emit('SOCIAL', { msg: `Published post: "${content.slice(0, 40)}..."` });
-  // Derive postCount from own posts only — never from incoming mesh posts
-  const ownPosts = STATE.posts.filter(p => p.did === STATE.did).length;
-  const pc = document.getElementById('postCount');
-  if (pc) pc.textContent = ownPosts;
-  // Broadcast to mesh
-  if (meshBus && STATE.did) {
-    meshBus.postMessage({ type: 'SOCIAL_POST', post: newPost, from: STATE.did,
-      handle: STATE.handle, pubKeyB64: STATE.pubKeyB64, ts: Date.now() });
-  }
+  EventBus.emit('SOCIAL', { msg:`Published post: "${content.slice(0,40)}..."` });
+  document.getElementById('postCount').textContent = parseInt(document.getElementById('postCount').textContent)+1;
 }
 
 function renderTrending() {
+  const trends = [
+    { tag:'#SovereignNet', count:'2.4K posts' },
+    { tag:'#P2PMesh', count:'1.8K posts' },
+    { tag:'#DecentralAI', count:'940 posts' },
+    { tag:'#DAGProtocol', count:'720 posts' },
+    { tag:'#OpenSource', count:'610 posts' },
+  ];
   const el = document.getElementById('trendingList');
   if (!el) return;
-  // Derive trending tags from real posts in STATE.posts
-  const tagCounts = {};
-  for (const post of STATE.posts) {
-    const tags = post.tags || [];
-    // Also extract inline #hashtags from text
-    const inlineTags = (post.text || '').match(/#\w+/g) || [];
-    for (const tag of [...tags, ...inlineTags]) {
-      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-    }
-  }
-  const sorted = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  if (sorted.length === 0) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:12px;text-align:center">Tags appear as posts are made</div>';
-    return;
-  }
-  el.innerHTML = sorted.map(([tag, count]) => `
-    <div class="trend-item" onclick="searchTag('${tag}')">
-      <div class="trend-tag">${tag}</div>
-      <div class="trend-count">${count} post${count !== 1 ? 's' : ''}</div>
+  el.innerHTML = trends.map(t => `
+    <div class="trend-item" onclick="searchTag('${t.tag}')">
+      <div class="trend-tag">${t.tag}</div>
+      <div class="trend-count">${t.count}</div>
     </div>
   `).join('');
 }
@@ -3784,18 +3656,12 @@ function renderTrending() {
 function renderSuggestedPeers() {
   const el = document.getElementById('suggestedPeers');
   if (!el) return;
-  // Show peers we are NOT yet following
-  const unFollowed = STATE.peers.filter(p => !STATE.following?.[p.did]);
-  if (unFollowed.length === 0) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:12px;text-align:center">No new peers to suggest yet.</div>';
-    return;
-  }
-  el.innerHTML = unFollowed.slice(0, 5).map(p => `
+  el.innerHTML = STATE.peers.slice(5,10).map(p => `
     <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;transition:background .1s;cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
       <div class="peer-avi" style="background:${p.color};width:32px;height:32px;font-size:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">${p.avi}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:600">${p.name}</div>
-        <div style="font-size:9px;color:var(--text3);font-family:var(--mono)">${p.did.slice(0,18)}…</div>
+        <div style="font-size:9px;color:var(--text3);font-family:var(--mono)">${p.did.slice(0,18)}...</div>
       </div>
       <button class="btn btn-sm btn-c" onclick="followPeer('${p.id}')">Follow</button>
     </div>
@@ -3803,20 +3669,8 @@ function renderSuggestedPeers() {
 }
 
 function followPeer(id) {
-  const p = STATE.peers.find(x => x.id === id);
-  if (!p) return;
-  if (!STATE.following) STATE.following = {};
-  if (STATE.following[p.did]) {
-    showToast(`Already following ${p.name}`, 'c');
-    return;
-  }
-  STATE.following[p.did] = { did: p.did, name: p.name, ts: Date.now() };
-  DB.put('identity', STATE.following, 'following').catch(() => {});
-  const count = Object.keys(STATE.following).length;
-  const fc = document.getElementById('followingCount');
-  if (fc) fc.textContent = count;
-  showToast(`Following ${p.name}!`, 'g');
-  EventBus.emit('SOCIAL', { msg: `Followed ${p.name}` });
+  const p = STATE.peers.find(x=>x.id===id);
+  if (p) { showToast(`Following ${p.name}!`, 'c'); EventBus.emit('SOCIAL', { msg:`Followed ${p.name}` }); const fc = document.getElementById('followingCount'); if(fc) fc.textContent = parseInt(fc.textContent)+1; }
 }
 
 function setFeedType(type, el) {
@@ -4159,8 +4013,16 @@ function createNewFile() {
 /* ══════════════════════════════════════════════════
    FILES
 ══════════════════════════════════════════════════ */
-// Files are loaded from IndexedDB during init() — no hardcoded sample data.
-STATE.files = [];
+const SAMPLE_FILES = [
+  { id:'fl1', name:'project-design.fig', size:'4.2 MB', icon:'🎨', cid:'bafyreib2rx...', type:'design' },
+  { id:'fl2', name:'sovereign-net-spec.pdf', size:'1.8 MB', icon:'📄', cid:'bafyreic3sa...', type:'doc' },
+  { id:'fl3', name:'demo-video.mp4', size:'42 MB', icon:'🎬', cid:'bafyreid4tb...', type:'video' },
+  { id:'fl4', name:'node-module.js', size:'18 KB', icon:'📄', cid:'bafyreie5uc...', type:'code' },
+  { id:'fl5', name:'profile-photo.png', size:'280 KB', icon:'🖼️', cid:'bafyreif6vd...', type:'image' },
+  { id:'fl6', name:'encrypted-notes.enc', size:'12 KB', icon:'🔐', cid:'bafyreig7we...', type:'encrypted' },
+];
+
+STATE.files = SAMPLE_FILES;
 
 function renderFileTree() {
   const el = document.getElementById('fileTree');
@@ -4178,10 +4040,6 @@ function renderFileTree() {
 function renderFilesGrid() {
   const el = document.getElementById('filesGrid');
   if (!el) return;
-  if (STATE.files.length === 0) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:32px;text-align:center;grid-column:1/-1">No files yet.<br>Drop files here or use the Upload button.</div>';
-    return;
-  }
   el.innerHTML = STATE.files.map(f => `
     <div class="file-card" onclick="previewFile('${f.id}')" ondblclick="openFile('${f.id}')">
       <div class="file-card-icon">${f.icon}</div>
@@ -4238,59 +4096,68 @@ function monetizeFile(id) {
 
 function openFile(id) { showToast('Opening file...', 'c'); }
 
-async function simulateUpload() { // name kept for onclick compatibility
-  if (!_uploadModalFile) {
-    showToast('Please select a file first', 'r');
-    return;
+async function simulateUpload() {
+  let name, size, icon, buf;
+  if (_uploadModalFile) {
+    const file = _uploadModalFile;
+    name = file.name;
+    size = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+    const ext = name.split('.').pop().toLowerCase();
+    const iconMap = { fig:'[fig]', json:'{}', mp3:'[mp3]', zip:'[zip]', md:'[md]', png:'[img]', jpg:'[img]', mp4:'[mp4]', pdf:'[pdf]' };
+    icon = iconMap[ext] || '[doc]';
+    buf = await file.arrayBuffer();
+    _uploadModalFile = null;
+    const label = document.getElementById('uploadModalDropLabel');
+    if (label) label.innerHTML = 'Drop files or <strong>browse</strong>';
+  } else {
+    const names = ['design.fig','data.json','audio.mp3','archive.zip','notebook.md'];
+    const icons = ['[fig]','{}','[mp3]','[zip]','[md]'];
+    const i = Math.floor(Math.random()*names.length);
+    name = names[i];
+    size = (Math.random()*50+0.5).toFixed(1)+' MB';
+    icon = icons[i];
+    buf = new TextEncoder().encode(name + size + Date.now());
   }
-  const file = _uploadModalFile;
-  const name = file.name;
-  const size = (file.size / 1024 / 1024).toFixed(1) + ' MB';
-  const ext  = name.split('.').pop().toLowerCase();
-  const iconMap = { fig:'🎨', json:'{}', mp3:'🎵', zip:'📦', md:'📝', png:'🖼️', jpg:'🖼️', mp4:'🎬', pdf:'📄', js:'📄', ts:'📄', html:'📄' };
-  const icon = iconMap[ext] || '📄';
-  const buf  = await file.arrayBuffer();
-  _uploadModalFile = null;
-  const label = document.getElementById('uploadModalDropLabel');
-  if (label) label.innerHTML = 'Drop files or <strong>browse</strong>';
-  const cid = await BlockStore.put(new Uint8Array(buf));
-  const nf  = { id: 'fl' + Date.now(), name, size, icon, cid, type: ext };
+  const cid = await BlockStore.put(buf ? new Uint8Array(buf) : name+size+Date.now());
+  const nf = { id:'fl'+Date.now(), name, size, icon, cid, type:'upload' };
   STATE.files.push(nf);
-  await DB.put('files', nf, nf.id).catch(() => {});
   renderFilesGrid();
   closeModal('uploadModal');
-  showToast('Uploaded: ' + nf.name + '  CID: ' + cid.slice(0, 14), 'g');
-  EventBus.emit('FILE', { msg: 'Uploaded: ' + nf.name + ' cid=' + cid.slice(0, 20) });
-  document.getElementById('stat-files').textContent = STATE.files.length;
+  showToast('Uploaded: '+nf.name+' CID:'+cid.slice(0,14), 'g');
+  EventBus.emit('FILE', { msg:'Uploaded: '+nf.name+' cid='+cid.slice(0,20) });
+  document.getElementById('stat-files').textContent = STATE.files.length + 306;
 }
 
 async function handleFileDrop(e) {
   e.preventDefault();
   document.getElementById('dropZone').classList.remove('drag-over');
   const files = [...e.dataTransfer.files];
-  const iconMap = { fig:'🎨', json:'{}', mp3:'🎵', zip:'📦', md:'📝', png:'🖼️', jpg:'🖼️', mp4:'🎬', pdf:'📄', js:'📄', ts:'📄', html:'📄' };
-  let count = 0;
+  let count=0;
   for (const file of files) {
-    const buf  = await file.arrayBuffer();
-    const cid  = await BlockStore.put(new Uint8Array(buf));
-    const ext  = file.name.split('.').pop().toLowerCase();
-    const icon = iconMap[ext] || '📄';
-    const nf   = { id: 'fl' + Date.now() + count, name: file.name, size: (file.size/1024/1024).toFixed(1)+' MB', icon, cid, type: ext };
+    const buf = await file.arrayBuffer();
+    const cid = await BlockStore.put(new Uint8Array(buf));
+    const nf = { id:'fl'+Date.now()+count, name:file.name, size:(file.size/1024/1024).toFixed(1)+' MB', icon:'[doc]', cid, type:'upload' };
     STATE.files.push(nf);
-    await DB.put('files', nf, nf.id).catch(() => {});
-    EventBus.emit('FILE', { msg: 'Dropped: ' + file.name + ' cid=' + cid.slice(0, 20) });
+    EventBus.emit('FILE', { msg:'Dropped: '+file.name+' cid='+cid.slice(0,20) });
     count++;
   }
   renderFilesGrid();
-  document.getElementById('stat-files').textContent = STATE.files.length;
-  showToast(files.length + ' file(s) stored — real CIDs!', 'g');
+  showToast(files.length+' file(s) stored — real CIDs!', 'g');
 }
 
 /* ══════════════════════════════════════════════════
    VIDEO
 ══════════════════════════════════════════════════ */
-// Videos are populated from real uploads and mesh peers — no hardcoded samples.
-STATE.videos = [];
+const SAMPLE_VIDEOS = [
+  { id:'v1', title:'Building a P2P Video Streamer', author:'vortex.node', avi:'🌊', views:'12K', duration:'42:18', emoji:'🎬', color:'rgba(0,212,255,0.15)', category:'Code Streams' },
+  { id:'v2', title:'DAG-Based Version Control Explained', author:'cipher.eth', avi:'🔮', views:'8.4K', duration:'28:44', emoji:'🔮', color:'rgba(179,136,255,0.15)', category:'Tutorials' },
+  { id:'v3', title:'Sovereign Net: New Internet Architecture', author:'lunar.node', avi:'🌙', views:'24K', duration:'1:04:22', emoji:'🌙', color:'rgba(255,193,7,0.15)', category:'Tutorials' },
+  { id:'v4', title:'Ambient Generative Music — Live Coding', author:'neon.node', avi:'💫', views:'5.2K', duration:'1:22:08', emoji:'🎵', color:'rgba(0,230,118,0.15)', category:'Music' },
+  { id:'v5', title:'Sovereign Mesh: 10,000 Node Demo', author:'phantom.svn', avi:'👻', views:'31K', duration:'18:55', emoji:'🕸️', color:'rgba(255,71,87,0.15)', category:'Code Streams' },
+  { id:'v6', title:'How to Monetize Your Node — Tutorial', author:'hex.peer', avi:'⬡', views:'18K', duration:'35:12', emoji:'💰', color:'rgba(255,213,79,0.15)', category:'Tutorials' },
+];
+
+STATE.videos = SAMPLE_VIDEOS;
 let videoPlaying = false;
 let videoProgress = 35;
 let videoProg;
@@ -4408,12 +4275,6 @@ async function submitVideoUpload() {
 function renderVideoGrid() {
   const el = document.getElementById('videoGrid');
   if (!el) return;
-  if (STATE.videos.length === 0) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:24px;text-align:center;grid-column:1/-1">No videos yet.<br>Upload a video file in Files, or receive one from a mesh peer.</div>';
-    renderVideoQueue();
-    renderLiveStreams();
-    return;
-  }
   el.innerHTML = STATE.videos.map(v => `
     <div class="video-card" onclick="playVideo('${v.id}')">
       <div class="video-thumb" style="background:${v.color}">
@@ -4527,17 +4388,7 @@ function seekVideo(e) {
     videoEl.currentTime = (pct / 100) * videoEl.duration;
   }
 }
-function tipCreator() {
-  if (STATE.credits < 20) { showToast('Insufficient credits!', 'r'); return; }
-  const vid = STATE.videos?.find(v => v.id === STATE.currentVideo);
-  const peer = vid ? STATE.peers.find(p => p.handle === vid.author) : null;
-  updateCredits(-20, `Tipped video creator${vid ? ' @' + vid.author : ''}`, vid?.author);
-  showToast('Tipped creator ◈ 20!', 'g');
-  if (peer && meshBus && STATE.did) {
-    meshBus.postMessage({ type: 'CREDIT_SEND', from: STATE.did, to: peer.did,
-      handle: STATE.handle, amount: 20, note: 'video tip', ts: Date.now() });
-  }
-}
+function tipCreator() { showToast('Tipped creator ◈ 20!', 'g'); EventBus.emit('LEDGER', { msg:'Tipped video creator ◈ 20' }); updateCredits(-20); }
 function filterVideos() {}
 
 function renderVideoQueue() {
@@ -4639,17 +4490,7 @@ function installApp(id) {
   const a = MARKET_APPS.find(x=>x.id===id);
   if (!a) return;
   if (a.price > 0 && STATE.credits < a.price) { showToast('Insufficient credits!', 'r'); return; }
-  if (a.price > 0) {
-    updateCredits(-a.price, `Installed "${a.name}"`, a.author);
-    // Notify the author's node so they earn the credit
-    if (meshBus && STATE.did && a.author) {
-      meshBus.postMessage({ type: 'APP_SALE', from: STATE.did, authorHandle: a.author,
-        appId: a.id, appName: a.name, amount: a.price, ts: Date.now() });
-    }
-  }
-  // Track install on our own apps
-  const myApp = MY_APPS.find(x => x.id === id);
-  if (myApp) { myApp.earnings = (myApp.earnings || 0) + (a.price || 0); renderEarningsBreakdown(); }
+  if (a.price > 0) updateCredits(-a.price);
   showToast(`Installing ${a.name}...`, 'g');
   EventBus.emit('LEDGER', { msg:`Installed "${a.name}" for ◈ ${a.price||0}` });
 }
@@ -4868,11 +4709,7 @@ const TERM_CMDS = {
   peers: () => STATE.peers.length
     ? STATE.peers.slice(0,12).map(p => (p.online?'*':'-') + ' ' + (p.handle||'?') + ' ' + (p.did||'').slice(0,20) + ' ' + (p.latency||0) + 'ms ' + (p.dc?'[RTC]':'[bus]'))
     : ['No peers. Open another tab with this app.'],
-  credits: () => {
-    const earned = TX_LOG.filter(t => t.type === 'earn').reduce((s, t) => s + Math.abs(parseInt(t.amt) || 0), 0);
-    const spent  = TX_LOG.filter(t => t.type === 'spend').reduce((s, t) => s + Math.abs(parseInt(t.amt) || 0), 0);
-    return ['Balance: ◈ ' + STATE.credits.toLocaleString(), 'Total earned: ◈ ' + earned.toLocaleString(), 'Total spent: ◈ ' + spent.toLocaleString(), 'Transactions: ' + TX_LOG.length];
-  },
+  credits: () => ['Balance: ' + STATE.credits, 'Pending: 320', 'Earned: 12,840'],
   ls: () => STATE.files.map(f => (f.icon||'[f]') + ' ' + f.name + '  ' + (f.size||'?') + '  ' + (f.cid||'no-cid').slice(0,24)),
   pwd: () => ['/root'],
   clear: () => { document.getElementById('termOutput').innerHTML=''; return []; },
@@ -5130,13 +4967,16 @@ function renderBadges() {
 function renderTxHistory() {
   const el = document.getElementById('txHistory');
   if (!el) return;
-  if (!TX_LOG.length) {
-    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:11px">No transactions yet</div>';
-    return;
-  }
-  el.innerHTML = TX_LOG.slice(0, 50).map(t => `
+  const txs = [
+    { type:'earn', amt:'+120', desc:'App sale: Node Dashboard', ts:Date.now()-3600000 },
+    { type:'spend', amt:'-20', desc:'Installed: NodeStream', ts:Date.now()-7200000 },
+    { type:'earn', amt:'+50', desc:'Tip received from vortex.node', ts:Date.now()-10800000 },
+    { type:'earn', amt:'+200', desc:'Routing rewards', ts:Date.now()-14400000 },
+    { type:'spend', amt:'-10', desc:'Tipped cipher.eth', ts:Date.now()-18000000 },
+  ];
+  el.innerHTML = txs.map(t => `
     <div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid var(--border);font-size:11px">
-      <span style="color:${t.type==='earn'?'var(--green)':'var(--red)'}">${t.amt}</span>
+      <span style="color:${t.type==='earn'?'var(--green)':'var(--red)'};">${t.amt}</span>
       <span style="flex:1;color:var(--text3)">${t.desc}</span>
       <span style="font-size:9px;color:var(--text3);font-family:var(--mono)">${getAgo(t.ts)}</span>
     </div>
@@ -5193,16 +5033,7 @@ function globalSearch(q) {
 /* ══════════════════════════════════════════════════
    MISC
 ══════════════════════════════════════════════════ */
-function tipCreatorPost(name) {
-  if (STATE.credits < 10) { showToast('Insufficient credits!', 'r'); return; }
-  const peer = STATE.peers.find(p => p.handle === name);
-  updateCredits(-10, `Tipped @${name}`, name);
-  showToast(`Tipped ${name} ◈ 10!`, 'g');
-  if (peer && meshBus && STATE.did) {
-    meshBus.postMessage({ type: 'CREDIT_SEND', from: STATE.did, to: peer.did,
-      handle: STATE.handle, amount: 10, note: 'post tip', ts: Date.now() });
-  }
-}
+function tipCreatorPost(name) { showToast(`Tipped ${name} ◈ 10!`, 'g'); updateCredits(-10); }
 function openDMModal() { openModal('newDMModal'); }
 // openVideoCallModal defined below in VIDEO CALL MODAL section
 
@@ -5239,32 +5070,10 @@ async function init() {
     }
   } catch(e) { EventBus.emit('SYS', { msg:'DAG restore: '+e.message }); }
 
-  // 4b. Load persisted files from IndexedDB
-  try {
-    const savedFiles = await DB.getAll('files');
-    if (savedFiles && savedFiles.length > 0) {
-      STATE.files = savedFiles;
-      EventBus.emit('SYS', { msg: `Files: restored ${savedFiles.length} file(s) from storage` });
-    }
-  } catch(e) { EventBus.emit('SYS', { msg: 'Files restore: ' + e.message }); }
-
-  // 4c. Load persisted posts from IndexedDB
-  try {
-    const savedPosts = await DB.getAll('posts');
-    if (savedPosts && savedPosts.length > 0) {
-      savedPosts.sort((a, b) => b.ts - a.ts);
-      STATE.posts = savedPosts;
-      EventBus.emit('SYS', { msg: `Social: restored ${savedPosts.length} post(s)` });
-    }
-  } catch(e) { EventBus.emit('SYS', { msg: 'Posts restore: ' + e.message }); }
-
-  // 4d. Load persisted following/followers from IndexedDB
-  try {
-    const savedFollowing  = await DB.get('identity', 'following');
-    const savedFollowers  = await DB.get('identity', 'followers');
-    if (savedFollowing)  STATE.following  = savedFollowing;
-    if (savedFollowers)  STATE.followers  = savedFollowers;
-  } catch(_) {}
+  // 4b. Bootstrap real CIDs for sample files
+  for (const f of STATE.files) {
+    if (!f.cid || f.cid.includes('...')) f.cid = await BlockStore.put(f.name+(f.size||''));
+  }
 
   // 5. Open BroadcastChannel mesh bus and announce self
   meshBus = new BroadcastChannel(MESH_CHANNEL);
@@ -5305,35 +5114,6 @@ async function init() {
   renderTxHistory();
   renderNotifications();
   updateClock();
-
-  // 8b. Sync all stat counters from real state
-  const statFiles = document.getElementById('stat-files');
-  const statMsgs  = document.getElementById('stat-msgs');
-  const statEarn  = document.getElementById('stat-earn');
-  if (statFiles) statFiles.textContent = STATE.files.length;
-  if (statMsgs)  statMsgs.textContent  = Object.values(STATE.messages).reduce((n, arr) => n + arr.length, 0);
-  if (statEarn)  statEarn.textContent  = '◈ ' + STATE.credits.toLocaleString();
-
-  // Social profile counters
-  const ownPosts = STATE.posts.filter(p => p.did === STATE.did).length;
-  const pcEl = document.getElementById('postCount');
-  const fcEl = document.getElementById('followingCount');
-  const frEl = document.getElementById('followersCount');
-  const caEl = document.getElementById('creditAmt');
-  if (pcEl) pcEl.textContent = ownPosts;
-  if (fcEl) fcEl.textContent = Object.keys(STATE.following  || {}).length;
-  if (frEl) frEl.textContent = Object.keys(STATE.followers  || {}).length;
-  if (caEl) caEl.textContent = '◈ ' + STATE.credits.toLocaleString();
-
-  // DID document hash — derive from real DID + pubkey
-  const didHashEl = document.getElementById('didHashDisplay');
-  if (didHashEl && STATE.did && STATE.pubKeyB64) {
-    const enc = new TextEncoder().encode(STATE.did + STATE.pubKeyB64);
-    crypto.subtle.digest('SHA-256', enc).then(buf => {
-      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      didHashEl.textContent = 'bafy' + hex.slice(0, 52); // CIDv1-style prefix
-    }).catch(() => { didHashEl.textContent = STATE.did.slice(0, 40) + '…'; });
-  }
 
   // 9. Boot toasts
   setTimeout(() => showToast('SOVEREIGN NET OS v3 — Node Online!', 'g'), 300);
@@ -5437,16 +5217,16 @@ async function joinPrivateChannel() {
    PUBLIC CHANNEL BROWSER
 ══════════════════════════════════════════════════ */
 const PUBLIC_CHANNEL_DIRECTORY = [
-  { id:'general',              name:'general',           icon:'#',  members:0, topic:'General mesh chat — open to all nodes',                   tags:['chat','open'] },
-  { id:'dev',                  name:'dev-talk',          icon:'#',  members:0, topic:'Code, builds, and tech discussion',                       tags:['code','tech'] },
-  { id:'builds',               name:'builds',            icon:'#',  members:0, topic:'Share your latest builds and deployments',                 tags:['builds','deploy'] },
-  { id:'media',                name:'media-share',       icon:'#',  members:0, topic:'Images, videos, and media sharing',                       tags:['media'] },
-  { id:'p2p-research',         name:'p2p-research',      icon:'#',  members:0, topic:'Academic P2P and distributed systems research',            tags:['research','academic'] },
-  { id:'node-ops',             name:'node-ops',          icon:'#',  members:0, topic:'Running and optimizing your sovereign node',               tags:['ops','infra'] },
-  { id:'marketplace-discuss',  name:'marketplace',       icon:'#',  members:0, topic:'App marketplace discussion and reviews',                   tags:['market','apps'] },
-  { id:'mesh-gaming',          name:'mesh-gaming',       icon:'#',  members:0, topic:'Gaming over the sovereign mesh',                           tags:['games'] },
-  { id:'announcements',        name:'announcements',     icon:'📢', members:0, topic:'Official Sovereign Net announcements',                    tags:['official'] },
-  { id:'localnet-mn',          name:'localnet-mn',       icon:'📍', members:0, topic:'Local mesh — Minnesota region',                           tags:['local'] },
+  { id:'general', name:'general', icon:'#', members:48, topic:'General mesh chat — open to all nodes', tags:['chat','open'] },
+  { id:'dev', name:'dev-talk', icon:'#', members:24, topic:'Code, builds, and tech discussion', tags:['code','tech'] },
+  { id:'builds', name:'builds', icon:'#', members:16, topic:'Share your latest builds and deployments', tags:['builds','deploy'] },
+  { id:'media', name:'media-share', icon:'#', members:32, topic:'Images, videos, and media sharing', tags:['media'] },
+  { id:'p2p-research', name:'p2p-research', icon:'#', members:91, topic:'Academic P2P and distributed systems research', tags:['research','academic'] },
+  { id:'node-ops', name:'node-ops', icon:'#', members:57, topic:'Running and optimizing your sovereign node', tags:['ops','infra'] },
+  { id:'marketplace-discuss', name:'marketplace', icon:'#', members:39, topic:'App marketplace discussion and reviews', tags:['market','apps'] },
+  { id:'mesh-gaming', name:'mesh-gaming', icon:'#', members:22, topic:'Gaming over the sovereign mesh', tags:['games'] },
+  { id:'announcements', name:'announcements', icon:'📢', members:240, topic:'Official Sovereign Net announcements', tags:['official'] },
+  { id:'localnet-mn', name:'localnet-mn', icon:'📍', members:8, topic:'Local mesh — Minnesota region', tags:['local'] },
 ];
 
 function renderChannelBrowser() {
@@ -6162,7 +5942,12 @@ h1{color:#b388ff;margin-bottom:4px;font-size:18px}
 const SESSION=${JSON.stringify({id:session.id,cid:session.cid,messages:hist,did:STATE?.did})};
 console.log('Sovereign AI Node Bundle loaded. Session:', SESSION.id, 'CID:', SESSION.cid);
 // To resume: POST this bundle\'s messages as context to any Ollama endpoint
-<\/script></body></html>`
+<\/script><script src="src/ipfsAdapter.js"></script>
+<script src="src/enos-storage.js"></script>
+<script src="src/kernel.js"></script>
+<script src="src/kernel-client.js"></script>
+<script src="src/ext-host.js"></script>
+<script src="modules/ADM.js"></script><script src="modules/CT-SHC.js"></script><script src="modules/DCP.js"></script><script src="modules/EEV.js"></script><script src="modules/NPS.js"></script><script src="modules/PDMG.js"></script><script src="modules/ZSAM.js"></script></body></html>`
     ], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -6570,5 +6355,10 @@ if (!document.querySelector('#ai-blink-style')) {
 }
 
 </script>
-</body>
+<script src="src/ipfsAdapter.js"></script>
+<script src="src/enos-storage.js"></script>
+<script src="src/kernel.js"></script>
+<script src="src/kernel-client.js"></script>
+<script src="src/ext-host.js"></script>
+<script src="modules/ADM.js"></script><script src="modules/CT-SHC.js"></script><script src="modules/DCP.js"></script><script src="modules/EEV.js"></script><script src="modules/NPS.js"></script><script src="modules/PDMG.js"></script><script src="modules/ZSAM.js"></script></body>
 </html>

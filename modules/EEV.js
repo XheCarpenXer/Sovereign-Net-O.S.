@@ -87,10 +87,18 @@ window.__ext.register('eev', function (api) {
   async function deleteBranch (name) {
     const branch = _branches.get(name);
     if (!branch) return false;
-    // Clear all items in ENOSStorage for this branch
-    await api.storage.capsules.clear();   // NOTE: capsules is the shared ENOS store;
-    // In practice you'd list+delete by prefix. For now we just unregister the branch.
-    // ENOSStorage doesn't expose a prefix-delete, so items become orphaned but harmless.
+    // FIX: Delete only items belonging to this branch (prefix-scoped).
+    // The previous code called api.storage.capsules.clear() which wiped ALL capsule
+    // data across every branch — a critical data-loss bug.
+    try {
+      const prefix = `branch:${name}:`;
+      const all = await api.storage.capsules.list();
+      const branchItems = all.filter(r => r.id && r.id.startsWith(prefix));
+      await Promise.all(branchItems.map(r => api.storage.capsules.delete(r.id)));
+    } catch (_) {
+      // Non-fatal: in-memory branch registry is removed regardless.
+      // Any un-deleted storage keys are namespaced and harmless.
+    }
     _branches.delete(name);
     api.emit('SYS', { msg: `EEV: branch deleted — "${name}"` });
     return true;

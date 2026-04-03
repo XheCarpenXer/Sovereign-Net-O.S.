@@ -230,8 +230,15 @@ window.__ext.register('pdmg', function (api) {
       const local = nodes.get(rn.id);
       if (!local) {
         const node = new GraphNode(rn.type, rn.content, rn.meta);
-        node.id   = rn.id;
-        node.hash = rn.hash;
+        node.id = rn.id;
+        // FIX: Recompute the hash locally and compare against the remote value.
+        // The old code blindly trusted rn.hash, allowing a malicious peer to inject
+        // nodes with forged hashes and corrupt the Merkle root.
+        await node.computeHash();
+        if (rn.hash && node.hash !== rn.hash) {
+          api.emit('SYS', { msg: `PDMG: rejected remote node ${rn.id} — hash mismatch (possible data forgery)` });
+          continue;
+        }
         nodes.set(node.id, node);
         merged++;
       } else if (rn.meta.modified > local.meta.modified) {
