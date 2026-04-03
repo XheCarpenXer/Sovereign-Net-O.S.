@@ -485,6 +485,12 @@ class KernelSync {
 
   decode(encoded) {
     try {
+      // Fix 10: Enforce envelope size limit before decoding to prevent
+      // a peer from sending a massive base64 payload that exhausts memory
+      // during Buffer.from() + JSON.parse(). Each base64 char ≈ 0.75 bytes.
+      if (typeof encoded !== "string" || encoded.length * 0.75 > MAX_ENVELOPE_BYTES) {
+        return null;
+      }
       return JSON.parse(Buffer.from(encoded, "base64").toString("utf8"));
     } catch {
       return null;

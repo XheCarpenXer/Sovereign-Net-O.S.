@@ -50,6 +50,19 @@ const IS_DEV     = process.argv.includes('--dev');
 const IS_MAC     = process.platform === 'darwin';
 const IS_WIN     = process.platform === 'win32';
 
+// ── Dev-mode security warning ──────────────────────────────────────────────
+// webSecurity is disabled in dev mode to allow hot-reload and localhost fetches.
+// This MUST never be used in production or in shared/public environments.
+if (IS_DEV) {
+  console.warn('');
+  console.warn('╔══════════════════════════════════════════════════════════════╗');
+  console.warn('║  ⚠  DEV MODE — webSecurity is DISABLED                      ║');
+  console.warn('║  The renderer can fetch any URL. Do NOT use on a shared,    ║');
+  console.warn('║  public, or production machine. Run without --dev for prod. ║');
+  console.warn('╚══════════════════════════════════════════════════════════════╝');
+  console.warn('');
+}
+
 // BW and reputation state → managed by kernel.dispatch()
 
 let mainWindow = null;
@@ -251,8 +264,9 @@ function createWindow() {
       preload:            path.join(__dirname, 'preload.js'),
       contextIsolation:   true,
       nodeIntegration:    false,
-      // Allow fetch to localhost:5001 / 8080 from the renderer
-      webSecurity:        !IS_DEV, // relax in dev; tighten in prod via preload bridge
+      sandbox:            true,   // Fix: explicitly enable renderer process sandbox
+      // webSecurity disabled only in dev for hot-reload; always true in production
+      webSecurity:        !IS_DEV,
     }
   });
 
@@ -297,7 +311,42 @@ function createTray() {
 // The renderer calls window.ipfs.api(path, opts) and gets a Promise back.
 // This sidesteps CORS entirely since the request originates from main process.
 
+// Allowlist of Kubo RPC paths the renderer is permitted to call.
+// Any path not in this set is rejected before a network request is made,
+// preventing a compromised renderer from reaching Kubo admin endpoints
+// (e.g. /shutdown, /repo/gc, /config, /key/gen).
+const IPFS_API_ALLOWLIST = new Set([
+  '/version',
+  '/id',
+  '/add',
+  '/cat',
+  '/pin/add',
+  '/pin/rm',
+  '/pin/ls',
+  '/swarm/peers',
+  '/swarm/connect',
+  '/swarm/disconnect',
+  '/swarm/addrs/listen',
+  '/swarm/nat/status',
+  '/pubsub/pub',
+  '/pubsub/sub',
+  '/pubsub/ls',
+  '/name/publish',
+  '/name/resolve',
+  '/repo/stat',
+  '/stats/bw',
+  '/dht/findpeer',
+  '/dht/findprovs',
+  '/block/stat',
+  '/block/get',
+]);
+
 ipcMain.handle('ipfs:api', async (_event, { path: apiPath, method = 'POST', formData, query }) => {
+  // ── Security: reject any path not in the explicit allowlist ──────────────
+  if (!IPFS_API_ALLOWLIST.has(apiPath)) {
+    console.warn(`[ipfs:api] Blocked disallowed path: ${apiPath}`);
+    return { ok: false, status: 403, error: `Forbidden: '${apiPath}' is not an allowed Kubo API path` };
+  }
   const url = `${IPFS_API}/api/v0${apiPath}${query ? '?' + new URLSearchParams(query).toString() : ''}`;
 
   if (formData) {
@@ -470,6 +519,58 @@ ipcMain.handle('pubsub:unsubscribe', async (_event, topic) => {
 // never contains "undefined" as a path component.
 app.name = 'Sovereign Net OS';
 
+// ── Fix 9a: Navigation + popup lockdown ───────────────────────────────────
+// Every BrowserWindow (present and future) must stay on file://.
+// Navigating to a remote URL would bypass contextIsolation + sandbox.
+// window.open() is blocked entirely; the IPFS WebUI is opened via
+// shell.openExternal() (tray menu) which uses the OS browser, not Electron.
+app.on('web-contents-created', (_e, contents) => {
+  contents.on('will-navigate', (event, url) => {
+    if (!url.startsWith('file://')) {
+      console.warn(`[security] Blocked navigation to remote URL: ${url}`);
+      event.preventDefault();
+    }
+  });
+
+  contents.setWindowOpenHandler(({ url }) => {
+    console.warn(`[security] Blocked window.open() to: ${url}`);
+    return { action: 'deny' };
+  });
+});
+
+// ── Fix 9b: Content-Security-Policy response headers ─────────────────────
+// Injected on every local file response so the renderer cannot load remote
+// scripts, frames, objects, or connect to arbitrary hosts.
+// Inline scripts/styles are allowed because the app bundles everything into
+// a single index.html. If you split into separate JS files you can remove
+// 'unsafe-inline' from script-src.
+app.whenReady().then(() => {
+  const { session } = require('electron');
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self';" +
+          " script-src 'self' 'unsafe-inline';" +
+          // Google Fonts stylesheet is loaded from index.html; allow it here.
+          // unsafe-inline covers the large inline <style> blocks in index.html.
+          " style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
+          // Google Fonts font files are served from fonts.gstatic.com.
+          " font-src 'self' data: https://fonts.gstatic.com;" +
+          // Localhost services: Kubo API/gateway + optional Ollama AI inference.
+          " connect-src 'self' http://127.0.0.1:5001 http://127.0.0.1:8080 http://localhost:11434;" +
+          " img-src 'self' data: blob:;" +
+          " media-src 'self' blob:;" +
+          " frame-src 'none';" +
+          " object-src 'none';" +
+          " base-uri 'none';"
+        ]
+      }
+    });
+  });
+});
+
 // ── IPC bridge: all state mutations via kernel.dispatch() ─────────────────
 // createIpcBridge wires rep:*, bw:*, kernel:dispatch, kernel:query, kernel:snapshot
 // Effects (ban push, bw change push) are registered inside the bridge.
@@ -543,11 +644,16 @@ app.whenReady().then(async () => {
       const senderId = event.origin.slice(5); // strip "peer:"
       const pubKeyB64 = kernel.query("PEER_PUBKEY", senderId);
       if (!pubKeyB64) {
-        // Unknown peer — reject until they announce their pubkey via
-        // PEER_PUBKEY_REGISTER (sent in the first sync envelope).
-        // Do not throw a hard error here so the kernel can still accept
-        // PEER_PUBKEY_REGISTER events from unknown origins when we relax
-        // below for that specific type.
+        // Unknown peer introducing themselves via PEER_PUBKEY_REGISTER.
+        //
+        // Fix (Bug 3): We can no longer silently pass these through unsigned,
+        // because any actor on the network could register an arbitrary pubkey
+        // for any peer ID and then forge signed events.
+        //
+        // Mitigation: PEER_PUBKEY_REGISTER must still carry a `sig` field,
+        // but we use self-verification — the payload's own pubKeyB64 is used
+        // to verify the signature, proving the sender possesses the private key.
+        // This is a proof-of-possession check: register-yourself-only.
         if (event.type !== "PEER_PUBKEY_REGISTER") {
           const { KernelError } = require("./kernel");
           throw new KernelError(
@@ -555,7 +661,31 @@ app.whenReady().then(async () => {
             `No registered pubkey for peer ${senderId} — cannot verify event ${event.type}`
           );
         }
-        return; // allow PEER_PUBKEY_REGISTER through unsigned so peers can introduce themselves
+        // PEER_PUBKEY_REGISTER: must have sig + valid pubKeyB64 in payload
+        const regPubKeyB64 = event.payload?.pubKeyB64;
+        if (!event.sig || !regPubKeyB64) {
+          const { KernelError } = require("./kernel");
+          throw new KernelError(
+            "UNSIGNED_PUBKEY_REGISTER",
+            `PEER_PUBKEY_REGISTER from ${senderId} rejected: must include both sig and pubKeyB64 payload`
+          );
+        }
+        // Proof-of-possession: verify the sig using the pubkey being registered
+        try {
+          const spkiDer  = Buffer.from(regPubKeyB64, "base64");
+          const sigBuf   = Buffer.from(event.sig, "base64");
+          const msgBytes = canonicalEventBytes(event);
+          const ok = nodeCrypto.verify("SHA256", msgBytes, { key: spkiDer, format: "der", type: "spki", dsaEncoding: "der" }, sigBuf);
+          if (!ok) {
+            const { KernelError } = require("./kernel");
+            throw new KernelError("BAD_PUBKEY_REGISTER_SIG", `PEER_PUBKEY_REGISTER from ${senderId}: proof-of-possession sig failed`);
+          }
+        } catch (err) {
+          if (err.code === "KERNEL_ERROR" || err.name === "KernelError") throw err;
+          const { KernelError } = require("./kernel");
+          throw new KernelError("SIG_VERIFY_ERROR", `PEER_PUBKEY_REGISTER sig verify error for ${senderId}: ${err.message}`);
+        }
+        return; // proof-of-possession passed — allow registration through
       }
 
       // ── Real ECDSA P-256 verification ─────────────────────────────────────

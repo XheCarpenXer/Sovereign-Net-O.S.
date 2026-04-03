@@ -129,6 +129,9 @@ const RESTORE_VALIDATORS = {
     for (const [k, val] of Object.entries(v)) {
       if (typeof k !== "string" || k.length === 0)
         throw new KernelValidationError("RESTORE_INVALID_STATE_KEY", `state key must be non-empty string (got ${JSON.stringify(k)})`);
+      // Fix 11: Reject prototype-polluting keys in restored snapshot data
+      if (k === "__proto__" || k === "constructor" || k === "prototype")
+        throw new KernelValidationError("RESTORE_INVALID_STATE_KEY", `state key "${k}" is reserved and not allowed`);
       if (val === undefined)
         throw new KernelValidationError("RESTORE_INVALID_STATE_VALUE", `state["${k}"] must not be undefined`);
     }
@@ -505,23 +508,37 @@ class DispatchKernel extends AbsoluteKernel {
   }
 
   _registerBuiltins() {
+    // Fix 6: Guard against prototype pollution — reject reserved key names that
+    // would climb the prototype chain if the state Map were ever spread into a
+    // plain object, or if a downstream consumer uses key as a property name.
+    const _guardStateKey = (key, op) => {
+      if (typeof key !== "string" || key === "") throw new KernelValidationError("INVALID_PAYLOAD", `${op} requires a non-empty string key`);
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        throw new KernelValidationError("INVALID_KEY", `${op} key "${key}" is reserved and not allowed`);
+      }
+    };
+
     this.register("STATE_SET", ({ key, value }) => {
-      if (!key) throw new KernelValidationError("INVALID_PAYLOAD", "STATE_SET requires key");
+      _guardStateKey(key, "STATE_SET");
       const prev = this._state.get(key);
       this._state.set(key, value);
       return { key, prev, value };
     });
 
     this.register("STATE_DELETE", ({ key }) => {
+      _guardStateKey(key, "STATE_DELETE");
       const prev = this._state.get(key);
       this._state.delete(key);
       return { key, prev };
     });
 
     this.register("STATE_MERGE", ({ key, patch }) => {
-      if (!key || typeof patch !== "object") throw new KernelValidationError("INVALID_PAYLOAD", "STATE_MERGE requires key+patch object");
+      _guardStateKey(key, "STATE_MERGE");
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new KernelValidationError("INVALID_PAYLOAD", "STATE_MERGE requires key + plain-object patch");
+      // Strip inherited prototype keys from patch before spreading
+      const safePatch = Object.assign(Object.create(null), patch);
       const prev = this._state.get(key) ?? {};
-      const next = { ...prev, ...patch };
+      const next = { ...prev, ...safePatch };
       this._state.set(key, next);
       return { key, prev, next };
     });
@@ -563,11 +580,17 @@ class DispatchKernel extends AbsoluteKernel {
       return { mergedId, base, head, mergedData };
     }, { cost: 3 });
 
+    const MAX_BLOCK_SIZE = 10 * 1024 * 1024; // 10 MB per block
     this.register("BLOCK_PUT", ({ cid, data, meta = {} }) => {
       if (!cid) throw new KernelValidationError("INVALID_PAYLOAD", "BLOCK_PUT requires cid");
+      // Fix 7: Enforce block size limit to prevent memory exhaustion
+      const dataSize = typeof data === "string" ? data.length : (data instanceof Uint8Array || Buffer.isBuffer(data) ? data.byteLength : 0);
+      if (dataSize > MAX_BLOCK_SIZE) {
+        throw new KernelValidationError("BLOCK_TOO_LARGE", `BLOCK_PUT data size ${dataSize} exceeds limit of ${MAX_BLOCK_SIZE} bytes`);
+      }
       if (this._blocks.has(cid)) return { cid, duplicate: true };
       this._blocks.set(cid, { cid, data, meta, ts: this.clock });
-      return { cid, size: meta.size ?? (typeof data === "string" ? data.length : 0) };
+      return { cid, size: meta.size ?? dataSize };
     });
 
     this.register("BLOCK_PIN", ({ cid }) => {

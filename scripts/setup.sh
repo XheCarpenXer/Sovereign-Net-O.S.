@@ -127,6 +127,10 @@ fi
 # ── 8. Inject modules from the modules/ directory ──────────
 # To add a new module: drop a .js file in modules/ and re-run setup.sh.
 # The loop below injects each one if not already present.
+#
+# ⚠  SECURITY WARNING: Every .js file in modules/ is injected as a <script>
+#    tag and runs with full app privileges. Only place files you trust in
+#    this directory. Do NOT use modules/ as a general download or temp folder.
 echo ""
 echo "→ Scanning modules/ directory…"
 MODULES_DIR="$SCRIPT_DIR/../modules"

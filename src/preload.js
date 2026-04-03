@@ -72,6 +72,12 @@ contextBridge.exposeInMainWorld('ipfs', {
    * when we're serving from file:// or Electron.
    */
   cat: async (cid) => {
+    // Fix 8: Validate CID format before embedding in URL to prevent path traversal.
+    // A valid CIDv0 is base58 (Qm..., 46 chars). CIDv1 is alphanumeric + possible hyphens.
+    // Reject anything containing slashes, dots, query chars, or whitespace.
+    if (typeof cid !== "string" || !/^[a-zA-Z0-9]+$/.test(cid) || cid.length < 10 || cid.length > 128) {
+      throw new Error(`Invalid CID format: "${cid}"`);
+    }
     const r = await fetch(`http://127.0.0.1:8080/ipfs/${cid}`);
     if (!r.ok) throw new Error(`Gateway error: ${r.status}`);
     return r.arrayBuffer();
