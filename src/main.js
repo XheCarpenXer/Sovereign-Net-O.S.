@@ -613,9 +613,12 @@ app.whenReady().then(async () => {
   const nodeCrypto = require("crypto");
 
   // Canonical bytes for a peer event — must match what kernel-sync signs.
-  // Mirrors the _uid() logic: clock:type:origin:JSON(payload)
+  // FIX: Use kernel.clock (the live kernel tick counter) instead of event.clock,
+  // which is never set on dispatched event objects. Using event.clock ?? 0 meant
+  // every canonical byte string embedded clock=0, making signatures replayable
+  // across any clock value. kernel.clock gives the actual current tick.
   function canonicalEventBytes(event) {
-    const raw = `${event.clock ?? 0}:${event.type}:${event.origin}:${JSON.stringify(event.payload ?? {})}`;
+    const raw = `${kernel.clock}:${event.type}:${event.origin}:${JSON.stringify(event.payload ?? {})}`;
     return Buffer.from(raw, "utf8");
   }
 
@@ -681,7 +684,11 @@ app.whenReady().then(async () => {
             throw new KernelError("BAD_PUBKEY_REGISTER_SIG", `PEER_PUBKEY_REGISTER from ${senderId}: proof-of-possession sig failed`);
           }
         } catch (err) {
-          if (err.code === "KERNEL_ERROR" || err.name === "KernelError") throw err;
+          // FIX: KernelError sets this.name = "KernelError" and this.code = a specific
+          // error code (e.g. "BAD_PUBKEY_REGISTER_SIG"). The previous guard checked
+          // err.code === "KERNEL_ERROR" which never matched anything — dead code that
+          // caused non-KernelError exceptions to be silently re-wrapped.
+          if (err.name === "KernelError") throw err;
           const { KernelError } = require("./kernel");
           throw new KernelError("SIG_VERIFY_ERROR", `PEER_PUBKEY_REGISTER sig verify error for ${senderId}: ${err.message}`);
         }
@@ -714,7 +721,8 @@ app.whenReady().then(async () => {
           );
         }
       } catch (err) {
-        if (err.code === "KERNEL_ERROR" || err.name === "KernelError") throw err;
+        // FIX: Same as above — err.code is never "KERNEL_ERROR". Only check err.name.
+        if (err.name === "KernelError") throw err;
         const { KernelError } = require("./kernel");
         throw new KernelError(
           "SIG_VERIFY_ERROR",

@@ -431,9 +431,12 @@ class DispatchKernel extends AbsoluteKernel {
     return q.call(this, ...args);
   }
 
+  // FIX: Use a Symbol so the queries cache cannot be overwritten by external code.
+  // The old double-underscore convention (__queries) was a public property.
   get _queries() {
-    if (!this.__queries) {
-      this.__queries = new Map([
+    const SYM = Symbol.for('__sovereign_kernel_queries__');
+    if (!this[SYM]) {
+      this[SYM] = new Map([
         ["STATE_GET",       (key)    => this._state.get(key)],
         ["STATE_ALL",       ()       => Object.fromEntries(this._state)],
         ["DAG_NODE",        (id)     => this._dag.nodes.get(id)],
@@ -449,7 +452,7 @@ class DispatchKernel extends AbsoluteKernel {
         ["UNITS_USED",      ()       => this.unitsUsed],
       ]);
     }
-    return this.__queries;
+    return this[SYM];
   }
 
   snapshot() {
@@ -584,7 +587,10 @@ class DispatchKernel extends AbsoluteKernel {
     this.register("BLOCK_PUT", ({ cid, data, meta = {} }) => {
       if (!cid) throw new KernelValidationError("INVALID_PAYLOAD", "BLOCK_PUT requires cid");
       // Fix 7: Enforce block size limit to prevent memory exhaustion
-      const dataSize = typeof data === "string" ? data.length : (data instanceof Uint8Array || Buffer.isBuffer(data) ? data.byteLength : 0);
+      const dataSize = typeof data === "string" ? data.length : (data instanceof Uint8Array ? data.byteLength : 0);
+      // FIX: Removed Buffer.isBuffer(data) — Buffer is Node-only and unavailable in
+      // browser/renderer contexts. Uint8Array covers all typed-array data; Buffer
+      // extends Uint8Array so it is already caught by the instanceof check.
       if (dataSize > MAX_BLOCK_SIZE) {
         throw new KernelValidationError("BLOCK_TOO_LARGE", `BLOCK_PUT data size ${dataSize} exceeds limit of ${MAX_BLOCK_SIZE} bytes`);
       }
@@ -626,7 +632,8 @@ class DispatchKernel extends AbsoluteKernel {
         if (!reachable.has(id)) { this._dag.nodes.delete(id); this._dag.edges.delete(id); collected++; }
       }
       for (const [src, targets] of this._dag.edges) {
-        for (const t of targets) if (!this._dag.nodes.has(t)) targets.delete(t);
+        // FIX: iterate a snapshot array so we can safely delete from the live Set
+        for (const t of [...targets]) if (!this._dag.nodes.has(t)) targets.delete(t);
         if (targets.size === 0) this._dag.edges.delete(src);
       }
       return { collected, retained: this._dag.nodes.size };

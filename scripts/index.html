@@ -14,7 +14,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>SOVEREIGN NET OS — Browser Compute Node</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="icon" type="image/jpeg" href="favicon.jpg">
+<link rel="icon" type="image/jpeg" href="/favicon.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -5942,7 +5942,12 @@ h1{color:#b388ff;margin-bottom:4px;font-size:18px}
 const SESSION=${JSON.stringify({id:session.id,cid:session.cid,messages:hist,did:STATE?.did})};
 console.log('Sovereign AI Node Bundle loaded. Session:', SESSION.id, 'CID:', SESSION.cid);
 // To resume: POST this bundle\'s messages as context to any Ollama endpoint
-<\/script></body></html>`
+<\/script><script src="src/ipfsAdapter.js"></script>
+<script src="src/enos-storage.js"></script>
+<script src="src/kernel.js"></script>
+<script src="src/kernel-client.js"></script>
+<script src="src/ext-host.js"></script>
+<script src="modules/ADM.js"></script><script src="modules/CT-SHC.js"></script><script src="modules/DCP.js"></script><script src="modules/EEV.js"></script><script src="modules/NPS.js"></script><script src="modules/PDMG.js"></script><script src="modules/ZSAM.js"></script></body></html>`
     ], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -6350,5 +6355,10 @@ if (!document.querySelector('#ai-blink-style')) {
 }
 
 </script>
-</body>
+<script src="src/ipfsAdapter.js"></script>
+<script src="src/enos-storage.js"></script>
+<script src="src/kernel.js"></script>
+<script src="src/kernel-client.js"></script>
+<script src="src/ext-host.js"></script>
+<script src="modules/ADM.js"></script><script src="modules/CT-SHC.js"></script><script src="modules/DCP.js"></script><script src="modules/EEV.js"></script><script src="modules/NPS.js"></script><script src="modules/PDMG.js"></script><script src="modules/ZSAM.js"></script></body>
 </html>
