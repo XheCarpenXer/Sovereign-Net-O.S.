@@ -476,17 +476,20 @@ class DispatchKernel extends AbsoluteKernel {
     RESTORE_VALIDATORS.peerPubkeys(snap.peerPubkeys ?? {});
     RESTORE_VALIDATORS.bwLimits(snap.bwLimits ?? { upload: 0, download: 0 });
 
-    // All validators passed — safe to assign
-    this.clock        = snap.clock;
-    this.unitsUsed    = snap.unitsUsed;
-    this._state       = new Map(Object.entries(snap.state));
-    this._blocks      = new Map(Object.entries(snap.blocks));
-    this._peerRep     = new Map(Object.entries(snap.peerRep));
-    this._peerPubkeys = new Map(Object.entries(snap.peerPubkeys));
-    this._bwLimits    = { ...snap.bwLimits };
+    // All validators passed — safe to assign.
+    // Use the same ?? defaults as the validators above so that a field that
+    // was absent (old snapshot format) never reaches Object.entries(null).
+    this.clock        = snap.clock        ?? 0;
+    this.unitsUsed    = snap.unitsUsed    ?? 0;
+    this._state       = new Map(Object.entries(snap.state       ?? {}));
+    this._blocks      = new Map(Object.entries(snap.blocks      ?? {}));
+    this._peerRep     = new Map(Object.entries(snap.peerRep     ?? {}));
+    this._peerPubkeys = new Map(Object.entries(snap.peerPubkeys ?? {}));
+    this._bwLimits    = { ...(snap.bwLimits ?? { upload: 0, download: 0 }) };
+    const dagSnap     = snap.dag ?? { nodes: {}, edges: {} };
     this._dag         = {
-      nodes: new Map(Object.entries(snap.dag.nodes)),
-      edges: new Map(Object.entries(snap.dag.edges).map(([k, v]) => [k, new Set(v)])),
+      nodes: new Map(Object.entries(dagSnap.nodes ?? {})),
+      edges: new Map(Object.entries(dagSnap.edges ?? {}).map(([k, v]) => [k, new Set(v)])),
     };
     this._history = Array.isArray(snap.history) ? snap.history : [];
   }

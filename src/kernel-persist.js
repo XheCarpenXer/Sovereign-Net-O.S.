@@ -179,7 +179,7 @@ class KernelPersist {
       lastFlushMs:   this._lastFlushAt ?? null,   // epoch ms of last successful write
       walEnabled:    this.walMode,
       walDepth,                                   // events in current WAL segment
-      historyLength: this.kernel.history.length,
+      historyLength: this.kernel.replay().length,
       clock:         this.kernel.clock,
       restoreErrors: this._restoreErrors ?? [],
     };
@@ -364,8 +364,8 @@ class KernelPersist {
       const { KernelReplayer } = require("./kernel-replay");
       const replayer  = new KernelReplayer();
       const trimClock = Math.max(0, this.kernel.clock - KernelPersist.CHECKPOINT_DEPTH);
-      const trimmed   = replayer.trim(this.kernel.history, trimClock);
-      this.kernel.history = trimmed;
+      const trimmed   = replayer.trim(this.kernel.replay(), trimClock);
+      this.kernel._history = trimmed;
       console.log(
         `[kernel-persist] History trimmed to ${trimmed.length} events ` +
         `(horizon clock=${trimClock})`
