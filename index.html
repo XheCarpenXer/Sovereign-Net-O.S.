@@ -5679,7 +5679,7 @@ const _origShowView = showView;
 window.showView = function(name) {
   _origShowView(name);
   if (name === 'security') secInitPatternGrid();
-  if (name === 'ai') { aiProbeOllama(); aiRenderJobQueue(); }
+  if (name === 'ai') { aiProbeOllama(); aiRenderJobQueue(); aiInjectSystemPrompt(); }
 };
 
 /* ══════════════════════════════════════════════════
@@ -5962,6 +5962,41 @@ console.log('Sovereign AI Node Bundle loaded. Session:', SESSION.id, 'CID:', SES
    AI VIEW CONTROLLER
 ══════════════════════════════════════════════════ */
 
+function aiInjectSystemPrompt(forceRefresh = false) {
+  const el = document.getElementById('ai-sysprompt');
+  if (!el) return;
+  if (el.value.trim() && !forceRefresh) return; // Don't overwrite user's custom prompt unless refreshing
+
+  // Gather live node state
+  const did      = STATE?.identity?.did || STATE?.did || 'did:svn:unknown';
+  const peers    = STATE?.peers?.length ?? STATE?.peerCount ?? 0;
+  const jobs     = (typeof AINode !== 'undefined' && AINode.getJobs?.()) ? AINode.getJobs().length : 0;
+  const model    = (typeof AINode !== 'undefined' && AINode.getActiveModel?.()) || 'none selected';
+  const blockH   = STATE?.blockHeight ?? STATE?.dag?.height ?? 0;
+  const nodeId   = STATE?.identity?.nodeId || STATE?.nodeId || 'unknown';
+  const caps     = ['inference', 'dag-store', 'mesh-relay'];
+
+  el.value =
+`You are a sovereign compute node running on SOVEREIGN NET OS v1.0.
+
+NODE IDENTITY
+  DID:          ${did}
+  Node ID:      ${nodeId}
+  Active model: ${model}
+  Capabilities: ${caps.join(', ')}
+
+MESH STATE (live at session start)
+  Connected peers: ${peers}
+  Block height:    ${blockH}
+  Pending jobs:    ${jobs}
+
+CONTEXT
+  You run locally via Ollama — no cloud, no API keys, no central server.
+  All inference is private to this node unless explicitly shared to the mesh.
+  You are aware of this node's identity and mesh state. Reference it when relevant.
+  When asked about system status, peers, or jobs, use the values above.`;
+}
+
 async function aiProbeOllama() {
   const dot = document.getElementById('ollama-dot');
   const txt = document.getElementById('ollama-status-text');
@@ -5978,6 +6013,7 @@ async function aiProbeOllama() {
     aiRenderModelList(result.models);
     EventBus.emit('AI', { msg: `Ollama online — ${result.models.length} models found` });
     AINode.initMeshBus();
+    aiInjectSystemPrompt(true); // refresh with now-known model
   } else {
     if (dot) dot.className = 'status-dot dead';
     if (txt) txt.textContent = 'ollama offline';
