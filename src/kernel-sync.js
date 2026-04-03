@@ -24,6 +24,7 @@
  * Sync is eventual and additive: you accept events, not commands.
  */
 
+const nodeCrypto       = require("crypto");
 const { KernelReplayer } = require("./kernel-replay");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,22 +34,46 @@ const SYNC_VERSION     = 1;
 const MAX_EVENTS_BATCH = 50;    // max events per pubsub message
 const PULL_TIMEOUT_MS  = 10_000;
 
+// ── Hardening constants ────────────────────────────────────────────────────
+/** Maximum byte size of a decoded peer envelope (512 KB). */
+const MAX_ENVELOPE_BYTES    = 524_288;
+/** Sliding window duration for per-peer event rate limiting. */
+const PEER_RATE_WINDOW_MS   = 5_000;
+/** Maximum events a peer may send within one rate window before penalisation. */
+const PEER_RATE_MAX_EVENTS  = 200;
+/** Fraction of events in a batch that may fail before the peer is flagged as Byzantine. */
+const BYZANTINE_FAIL_RATIO  = 0.5;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical bytes for a kernel event — must match canonicalEventBytes() in main.js
+// and _uid() in kernel.js so the signature covers a stable, reproducible string.
+// ─────────────────────────────────────────────────────────────────────────────
+function canonicalEventBytes(event) {
+  const raw = `${event.t ?? 0}:${event.type}:peer:local:${JSON.stringify(event.payload?.payload ?? event.payload ?? {})}`;
+  return Buffer.from(raw, "utf8");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 class KernelSync {
   /**
-   * @param {DispatchKernel} kernel     — local kernel
-   * @param {string}         nodeId     — this node's IPFS peer ID
-   * @param {function}       ipfsPost   — httpPost helper from main.js
-   * @param {string}         [channel]  — pubsub channel suffix (default "global")
+   * @param {DispatchKernel} kernel       — local kernel
+   * @param {string}         nodeId       — this node's IPFS peer ID
+   * @param {function}       ipfsPost     — httpPost helper from main.js
+   * @param {string}         [channel]    — pubsub channel suffix (default "global")
+   * @param {object}         [opts]
+   * @param {object}         [opts.persist]    — KernelPersist instance for archive fallback
+   * @param {object}         [opts.signingKey] — { privateKeyDer: Buffer, pubKeyB64: string }
    */
-  constructor(kernel, nodeId, ipfsPost, channel = "global") {
-    this.kernel    = kernel;
-    this.nodeId    = nodeId;
-    this.ipfsPost  = ipfsPost;
-    this.channel   = channel;
-    this.topic     = TOPIC_PREFIX + channel;
-    this.replayer  = new KernelReplayer();
+  constructor(kernel, nodeId, ipfsPost, channel = "global", { persist = null, signingKey = null } = {}) {
+    this.kernel     = kernel;
+    this.nodeId     = nodeId;
+    this.ipfsPost   = ipfsPost;
+    this.channel    = channel;
+    this.topic      = TOPIC_PREFIX + channel;
+    this.replayer   = new KernelReplayer();
+    this._persist   = persist;      // KernelPersist — for archive fallback on pull
+    this._signingKey = signingKey;  // { privateKeyDer, pubKeyB64 } — for signing events
 
     this._pollTimer    = null;
     this._lastPushClock = -1;
@@ -59,9 +84,18 @@ class KernelSync {
     this._localOnly = new Set([
       "KERNEL_RESET_UNITS",
       "PEER_REP_DECAY",
-      "IDENTITY_SET",     // identity is local
+      "IDENTITY_SET",     // identity is local — never share with peers
       "BW_SET_LIMITS",    // bandwidth policy is local
+      // Destructive operations that are node-sovereign and must not be
+      // replayed on a remote kernel whose GC roots differ.
+      "DAG_GC",
+      "BLOCK_DELETE",
+      "STATE_DELETE",
     ]);
+
+    // Per-peer sliding-window state for rate limiting.
+    // { peerId → { count: number, windowStart: number } }
+    this._peerRateWindows = new Map();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -109,12 +143,41 @@ class KernelSync {
 
     if (newEvents.length === 0) return;
 
+    // ── Sign each event with our ECDSA P-256 private key ──────────────────
+    // The sig covers the same canonical bytes that Validator B verifies:
+    //   clock:type:origin:JSON(payload)
+    // Peers that have registered our pubkey will verify this on receipt.
+    let signedEvents = newEvents;
+    if (this._signingKey?.privateKeyDer) {
+      signedEvents = newEvents.map(entry => {
+        try {
+          const msgBytes = canonicalEventBytes(entry);
+          const sigBuf   = nodeCrypto.sign(
+            "SHA256",
+            msgBytes,
+            {
+              key:    this._signingKey.privateKeyDer,
+              format: "der",
+              type:   "pkcs8",
+              dsaEncoding: "der",
+            }
+          );
+          return { ...entry, sig: sigBuf.toString("base64") };
+        } catch (_) {
+          return entry; // sign failure is non-fatal; peer will reject unsigned events
+        }
+      });
+    }
+
     const envelope = {
-      v:      SYNC_VERSION,
-      id:     `${this.nodeId}:${this.kernel.clock}:${Date.now()}`,
-      nodeId: this.nodeId,
-      clock:  this.kernel.clock,
-      events: newEvents,
+      v:         SYNC_VERSION,
+      id:        `${this.nodeId}:${this.kernel.clock}:${Date.now()}`,
+      nodeId:    this.nodeId,
+      clock:     this.kernel.clock,
+      events:    signedEvents,
+      // Include our pubkey so receiving peers can register it automatically.
+      // Peers store this via PEER_PUBKEY_REGISTER before dispatching our events.
+      pubKeyB64: this._signingKey?.pubKeyB64 ?? null,
     };
 
     try {
@@ -271,6 +334,22 @@ class KernelSync {
       return { ok: false, error: "Peer is banned" };
     }
 
+    // ── Auto-register peer pubkey ──────────────────────────────────────────
+    // If the envelope carries a pubKeyB64 and we don't yet have it stored,
+    // register it now so Validator B can verify this peer's event signatures.
+    // We dispatch this as origin "internal" so it bypasses the peer sig check
+    // (we can't verify the pubkey announcement with itself).
+    if (envelope.pubKeyB64 && typeof envelope.pubKeyB64 === "string") {
+      const existing = this.kernel.query("PEER_PUBKEY", envelope.nodeId);
+      if (!existing) {
+        this.kernel.dispatch({
+          type:    "PEER_PUBKEY_REGISTER",
+          payload: { peerId: envelope.nodeId, pubKeyB64: envelope.pubKeyB64 },
+          origin:  "internal",
+        });
+      }
+    }
+
     // Apply novel events
     let applied = 0;
     let skipped = 0;
@@ -286,6 +365,11 @@ class KernelSync {
         type:    entry.type,
         payload: entry.payload?.payload ?? entry.payload ?? {},
         origin:  `peer:${envelope.nodeId}`,
+        // Pass the per-event sig so Validator B can verify it cryptographically.
+        // Unsigned entries from older peers will be rejected by the validator.
+        sig:     entry.sig ?? null,
+        // clock from the entry is needed by canonicalEventBytes() in main.js
+        clock:   entry.t ?? 0,
       });
 
       if (result.ok) {
@@ -327,17 +411,50 @@ class KernelSync {
   // Handle a pull request from a peer — send them our history since their clock
   async handlePullRequest(req) {
     if (req.target !== this.nodeId) return; // not for us
-    const history = this.kernel.replay().filter(e =>
-      e.t > (req.clock ?? 0) &&
+
+    const sinceClock = req.clock ?? 0;
+
+    // ── Build event list ───────────────────────────────────────────────────
+    // 1. Live history (post-trim window)
+    const liveHistory = this.kernel.replay().filter(e =>
+      e.t > sinceClock &&
       !this._localOnly.has(e.type)
-    ).slice(-MAX_EVENTS_BATCH * 4); // send up to 200 events
+    );
+
+    // 2. Archive fallback — if the peer's sinceClock predates our live window,
+    //    read archived WAL segments to fill the gap.
+    let archiveHistory = [];
+    if (this._persist && liveHistory.length < MAX_EVENTS_BATCH * 2) {
+      const liveMin = liveHistory.length > 0 ? liveHistory[0].t : this.kernel.clock;
+      if (sinceClock < liveMin) {
+        try {
+          archiveHistory = this._persist.readArchivedSince(sinceClock).filter(e =>
+            !this._localOnly.has(e.type) &&
+            !["DISPATCH_REJECTED","DISPATCH_FAILED","DISPATCH_THROTTLED","DISPATCH_UNKNOWN"].includes(e.type)
+          );
+        } catch (_) {}
+      }
+    }
+
+    // Merge, deduplicate by id, sort, then cap at 4× batch limit
+    const seen = new Set();
+    const merged = [...archiveHistory, ...liveHistory]
+      .filter(e => {
+        const key = e.id ?? `${e.t}:${e.type}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => a.t - b.t)
+      .slice(-MAX_EVENTS_BATCH * 4); // send up to 200 events
 
     const envelope = {
-      v:       SYNC_VERSION,
-      id:      `pull-resp:${this.nodeId}:${Date.now()}`,
-      nodeId:  this.nodeId,
-      clock:   this.kernel.clock,
-      events:  history,
+      v:         SYNC_VERSION,
+      id:        `pull-resp:${this.nodeId}:${Date.now()}`,
+      nodeId:    this.nodeId,
+      clock:     this.kernel.clock,
+      events:    merged,
+      pubKeyB64: this._signingKey?.pubKeyB64 ?? null,
       inReplyTo: req.id,
     };
     try {

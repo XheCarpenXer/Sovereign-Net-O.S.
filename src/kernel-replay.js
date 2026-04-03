@@ -18,6 +18,12 @@
 const { DispatchKernel } = require("./kernel");
 
 // ─────────────────────────────────────────────────────────────────────────────
+// OOM guard — reject logs that would materialise too many events in memory.
+// Tune this constant for your heap budget; 50 000 is a safe default for most
+// Electron main-process workloads (~50 MB at ~1 KB per entry).
+const MAX_REPLAY_EVENTS = 50_000;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class KernelReplayer {
   /**
@@ -41,6 +47,17 @@ class KernelReplayer {
    * @returns {{ kernel: DispatchKernel, applied: number, skipped: number, errors: Array }}
    */
   replay(history, { toClockT = Infinity, strict = false } = {}) {
+    // ── OOM guard ─────────────────────────────────────────────────────────────
+    if (!Array.isArray(history)) {
+      throw new TypeError("replay(): history must be an Array");
+    }
+    if (history.length > MAX_REPLAY_EVENTS) {
+      throw new RangeError(
+        `replay(): history length ${history.length} exceeds MAX_REPLAY_EVENTS (${MAX_REPLAY_EVENTS}). ` +
+        "Trim the log before replaying or raise the constant if your heap supports it."
+      );
+    }
+
     const k = new DispatchKernel(this._kernelOpts);
 
     // Register same custom handlers if needed — subclass and override _configure(k)
@@ -59,6 +76,15 @@ class KernelReplayer {
     for (const entry of history) {
       if (entry.t > toClockT) break;
       if (skip.has(entry.type)) { skipped++; continue; }
+
+      // ── Entry structure validation ─────────────────────────────────────────
+      const validationError = this._validateEntry(entry);
+      if (validationError) {
+        errors.push({ entry, error: validationError });
+        if (strict) throw new Error(`Invalid entry at t=${entry.t}: ${validationError}`);
+        skipped++;
+        continue;
+      }
 
       try {
         const result = k.dispatch({
@@ -226,6 +252,67 @@ class KernelReplayer {
     });
 
     return combined;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // VALIDATE ENTRY  — structural check before every dispatch attempt
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Validate a single history entry's structure.
+   * Returns an error string on failure, or null if the entry is well-formed.
+   *
+   * Rules enforced:
+   *   • entry must be a non-null, non-array object
+   *   • entry.t    — required, finite number (clock tick)
+   *   • entry.type — required, non-empty string
+   *   • entry.payload — optional; when present must be a plain object
+   *     (not an array, not a primitive) so the dispatcher can spread it safely
+   *     The nested double-wrap shape { payload: { payload: ... } } is also
+   *     checked: the inner slot must likewise be a plain object if present.
+   *
+   * @param {*} entry
+   * @returns {string|null}  error message, or null when valid
+   */
+  _validateEntry(entry) {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      return "entry must be a non-null, non-array object";
+    }
+
+    // clock tick
+    if (typeof entry.t !== "number" || !Number.isFinite(entry.t)) {
+      return `entry.t must be a finite number (got ${JSON.stringify(entry.t)})`;
+    }
+
+    // event type
+    if (typeof entry.type !== "string" || entry.type.trim() === "") {
+      return `entry.type must be a non-empty string (got ${JSON.stringify(entry.type)})`;
+    }
+
+    // payload — absence is fine (treated as {}); presence must be a plain object
+    if (entry.payload !== undefined && entry.payload !== null) {
+      if (typeof entry.payload !== "object" || Array.isArray(entry.payload)) {
+        return (
+          `entry.payload must be a plain object when provided ` +
+          `(got ${Array.isArray(entry.payload) ? "Array" : typeof entry.payload})`
+        );
+      }
+      // Double-wrapped shape: { payload: { payload: <inner> } }
+      // The outer unwrapping in replay() is fine, but the inner slot must also
+      // be a plain object if it exists.
+      if (
+        entry.payload.payload !== undefined &&
+        entry.payload.payload !== null &&
+        (typeof entry.payload.payload !== "object" || Array.isArray(entry.payload.payload))
+      ) {
+        return (
+          `entry.payload.payload must be a plain object when present ` +
+          `(got ${Array.isArray(entry.payload.payload) ? "Array" : typeof entry.payload.payload})`
+        );
+      }
+    }
+
+    return null;
   }
 
   // ──────────────────────────────────────────────────────────────────────────

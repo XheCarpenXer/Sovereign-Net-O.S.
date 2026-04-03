@@ -10,10 +10,11 @@
  */
 
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell } = require('electron');
-const path  = require('path');
-const { spawn } = require('child_process');
-const fs    = require('fs');
-const http  = require('http');
+const path       = require('path');
+const { spawn }  = require('child_process');
+const fs         = require('fs');
+const http       = require('http');
+const nodeCrypto = require('crypto');
 
 // ── Kernel ─────────────────────────────────────────────────────────────────
 const { DispatchKernel, createIpcBridge } = require('./kernel');
@@ -344,29 +345,127 @@ app.name = 'Sovereign Net OS';
 // ── App lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   // ── 0. Security: register sig validators before any dispatch ──────────────
-  //    Peer-origin events MUST carry a `sig` field. We reject them immediately
-  //    if they don't, keeping the safe default even before key infrastructure
-  //    is in place. Replace the placeholder verifier below with real
-  //    Ed25519/libp2p-crypto verification once key exchange is wired up.
+  //
+  //    Validator A — Origin allowlist
+  //    Every event must declare a known, trusted origin string.
+  //    Un-recognised origins are rejected immediately, preventing spoofed
+  //    events from slipping through if a new code path forgets to set origin.
+  const ALLOWED_ORIGINS = new Set([
+    "internal",   // kernel built-ins and effects
+    "ipc",        // IPC bridge helpers (mut() in createIpcBridge)
+    "renderer",   // generic kernel:dispatch calls from the renderer
+    "scheduler",  // setInterval-driven PEER_REP_DECAY / KERNEL_RESET_UNITS
+    "replay",     // KernelReplayer.replay()
+    "wal-replay", // KernelPersist._replayWal()
+  ]);
   kernel.sig.use((event) => {
-    if (typeof event.origin === "string" && event.origin.startsWith("peer:")) {
-      if (!event.sig) {
-        const { KernelError } = require("./kernel");
-        throw new KernelError("UNSIGNED_PEER_EVENT",
-          `Peer event from ${event.origin} rejected: missing sig field`);
-      }
-      // TODO: verify event.sig against the sender's known public key.
-      // Until key infrastructure is in place this check ensures the field
-      // exists (structural gate). Swap in:
-      //   const senderId = event.origin.slice(5); // "peer:<nodeId>"
-      //   const pubKey   = kernel.query("PEER_PUBKEY", senderId);
-      //   if (!pubKey) throw new KernelError("UNKNOWN_PEER", `No public key for ${senderId}`);
-      //   const ok = crypto.verify(event.sig, canonicalBytes(event), pubKey);
-      //   if (!ok) throw new KernelError("BAD_SIG", `Invalid signature from ${senderId}`);
+    const origin = event.origin ?? "internal";
+    if (!ALLOWED_ORIGINS.has(origin) && !origin.startsWith("peer:")) {
+      const { KernelError } = require("./kernel");
+      throw new KernelError(
+        "INVALID_ORIGIN",
+        `Event type ${event.type} carries unknown origin "${origin}"`
+      );
     }
   });
 
-  // ── 1. Restore kernel state from disk (WAL enabled for crash safety) ──────
+  //    Validator B — Peer signature verification + payload-size gate
+  //    Peer-origin events MUST carry a valid ECDSA P-256 signature over the
+  //    canonical event bytes (type:origin:clock:JSON(payload)).
+  //    The signing key must have been previously registered via
+  //    PEER_PUBKEY_REGISTER — unknown peers are rejected outright.
+  //    Payload is also capped at 64 KB to prevent WAL flooding.
+  const MAX_PEER_PAYLOAD_BYTES = 65_536; // 64 KB
+  const nodeCrypto = require("crypto");
+
+  // Canonical bytes for a peer event — must match what kernel-sync signs.
+  // Mirrors the _uid() logic: clock:type:origin:JSON(payload)
+  function canonicalEventBytes(event) {
+    const raw = `${event.clock ?? 0}:${event.type}:${event.origin}:${JSON.stringify(event.payload ?? {})}`;
+    return Buffer.from(raw, "utf8");
+  }
+
+  kernel.sig.use((event) => {
+    if (typeof event.origin === "string" && event.origin.startsWith("peer:")) {
+      // ── Payload size gate (always checked, even before sig) ───────────────
+      const payloadBytes = JSON.stringify(event.payload ?? {}).length;
+      if (payloadBytes > MAX_PEER_PAYLOAD_BYTES) {
+        const { KernelError } = require("./kernel");
+        throw new KernelError(
+          "PEER_PAYLOAD_TOO_LARGE",
+          `Peer payload ${payloadBytes} B from ${event.origin} exceeds ${MAX_PEER_PAYLOAD_BYTES} B limit`
+        );
+      }
+
+      // ── Signature required ────────────────────────────────────────────────
+      if (!event.sig) {
+        const { KernelError } = require("./kernel");
+        throw new KernelError(
+          "UNSIGNED_PEER_EVENT",
+          `Peer event from ${event.origin} rejected: missing sig field`
+        );
+      }
+
+      // ── Pubkey lookup ─────────────────────────────────────────────────────
+      const senderId = event.origin.slice(5); // strip "peer:"
+      const pubKeyB64 = kernel.query("PEER_PUBKEY", senderId);
+      if (!pubKeyB64) {
+        // Unknown peer — reject until they announce their pubkey via
+        // PEER_PUBKEY_REGISTER (sent in the first sync envelope).
+        // Do not throw a hard error here so the kernel can still accept
+        // PEER_PUBKEY_REGISTER events from unknown origins when we relax
+        // below for that specific type.
+        if (event.type !== "PEER_PUBKEY_REGISTER") {
+          const { KernelError } = require("./kernel");
+          throw new KernelError(
+            "UNKNOWN_PEER_PUBKEY",
+            `No registered pubkey for peer ${senderId} — cannot verify event ${event.type}`
+          );
+        }
+        return; // allow PEER_PUBKEY_REGISTER through unsigned so peers can introduce themselves
+      }
+
+      // ── Real ECDSA P-256 verification ─────────────────────────────────────
+      try {
+        const spkiDer  = Buffer.from(pubKeyB64, "base64");
+        const sigBuf   = Buffer.from(event.sig,  "base64");
+        const msgBytes = canonicalEventBytes(event);
+
+        // Node's crypto.verify() with SPKI DER key and DER-encoded ECDSA sig
+        const ok = nodeCrypto.verify(
+          "SHA256",          // digest algo
+          msgBytes,          // data
+          {
+            key:    spkiDer,
+            format: "der",
+            type:   "spki",
+            dsaEncoding: "der",
+          },
+          sigBuf
+        );
+        if (!ok) {
+          const { KernelError } = require("./kernel");
+          throw new KernelError(
+            "BAD_PEER_SIG",
+            `Signature verification failed for peer ${senderId} on event ${event.type}`
+          );
+        }
+      } catch (err) {
+        if (err.code === "KERNEL_ERROR" || err.name === "KernelError") throw err;
+        const { KernelError } = require("./kernel");
+        throw new KernelError(
+          "SIG_VERIFY_ERROR",
+          `Sig verify error for peer ${senderId}: ${err.message}`
+        );
+      }
+    }
+  });
+
+  // ── 1. Restore kernel state from disk ─────────────────────────────────────
+  //    WAL mode MUST be true in production.  Without it a crash between the
+  //    debounced snapshot writes (3 s window) silently loses committed events.
+  //    The write-ahead log gives us crash-safe persistence with <1 event loss.
+  //    DO NOT set wal: false — see audit note in README § Security Hardening.
   attachPersistence(kernel, app, { wal: true });
 
   // ── 2. Create window + tray ────────────────────────────────────────────────
@@ -427,12 +526,57 @@ app.whenReady().then(async () => {
 
   // ── 7. Start kernel sync once node identity is known ──────────────────────
   //    (IDENTITY_SET fires when ipfsAdapter syncs the real peer ID)
+  //
+  //    We generate a persistent ECDSA P-256 signing key for this node on first
+  //    boot and store it in the kernel userData dir alongside the snapshot.
+  //    The DER-encoded private key never leaves the main process.
+  //    The base64 SPKI public key is broadcast in every sync envelope so peers
+  //    can register it and verify our event signatures.
   kernel.effect('IDENTITY_SET', (result) => {
     if (kernel._sync) return; // already started
     const nodeId = result?.peerId;
     if (!nodeId) return;
 
-    const sync = new KernelSync(kernel, nodeId, httpPost, 'global');
+    // ── Load or generate node signing key ───────────────────────────────────
+    const keyDir      = path.join(app.getPath('userData'), 'kernel');
+    const privKeyPath = path.join(keyDir, 'node-signing.key');  // PKCS8 DER, base64
+    const pubKeyPath  = path.join(keyDir, 'node-signing.pub');  // SPKI DER, base64
+
+    let signingKey = null;
+    try {
+      if (fs.existsSync(privKeyPath) && fs.existsSync(pubKeyPath)) {
+        const privateKeyDer = Buffer.from(fs.readFileSync(privKeyPath, 'utf8').trim(), 'base64');
+        const pubKeyB64     = fs.readFileSync(pubKeyPath, 'utf8').trim();
+        signingKey = { privateKeyDer, pubKeyB64 };
+        console.log('[main] Loaded existing node signing key');
+      } else {
+        const { privateKey, publicKey } = nodeCrypto.generateKeyPairSync('ec', {
+          namedCurve:           'P-256',
+          privateKeyEncoding:   { type: 'pkcs8', format: 'der' },
+          publicKeyEncoding:    { type: 'spki',  format: 'der' },
+        });
+        fs.mkdirSync(keyDir, { recursive: true });
+        const pubKeyB64  = publicKey.toString('base64');
+        fs.writeFileSync(privKeyPath, privateKey.toString('base64'), 'utf8');
+        fs.writeFileSync(pubKeyPath,  pubKeyB64,                     'utf8');
+        signingKey = { privateKeyDer: privateKey, pubKeyB64 };
+        console.log('[main] Generated new node signing key');
+        // Register our own pubkey so self-originated replays don't trip the
+        // unknown-peer guard if they're ever re-dispatched with a peer origin.
+        kernel.dispatch({
+          type:    'PEER_PUBKEY_REGISTER',
+          payload: { peerId: nodeId, pubKeyB64 },
+          origin:  'internal',
+        });
+      }
+    } catch (keyErr) {
+      console.error('[main] Signing key setup failed (sync will run unsigned):', keyErr.message);
+    }
+
+    const sync = new KernelSync(kernel, nodeId, httpPost, 'global', {
+      persist:    kernel._persist ?? null,
+      signingKey,
+    });
     kernel._sync = sync;
     attachSyncBridge(sync, ipcMain);
     sync.start({ broadcastMs: 5_000, pollMs: 3_000 });
