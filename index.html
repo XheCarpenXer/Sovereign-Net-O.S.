@@ -689,7 +689,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
               <div class="profile-big-avi" style="background:rgba(179,136,255,0.15)">🌐</div>
               <div style="font-family:var(--syne);font-size:14px;font-weight:800" id="profileName">sovereign.node</div>
               <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px" id="profileDid">@did:svn:0x4a2f</div>
-              <button class="btn btn-sm btn-v" style="margin-top:8px;width:100%">Edit Profile</button>
+              <button class="btn btn-sm btn-v" style="margin-top:8px;width:100%" onclick="openEditProfile()">Edit Profile</button>
               <div class="profile-stats">
                 <div class="profile-stat">
                   <div class="profile-stat-v" id="followersCount">128</div>
@@ -837,10 +837,15 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
           <div class="video-main">
             <!-- Player -->
             <div style="padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
-              <div class="video-player-wrap" id="videoPlayer">
-                🎬
+              <div class="video-player-wrap" id="videoPlayer" style="position:relative;background:#000;border-radius:var(--r-lg);overflow:hidden;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center">
+                <video id="videoEl" style="width:100%;height:100%;display:none" playsinline
+                       onended="videoPlaying=false;document.getElementById('videoPlayBtn').textContent='▶'"></video>
+                <div id="videoPlaceholder" style="color:var(--text3);font-size:13px;text-align:center">
+                  <div style="font-size:40px;margin-bottom:8px">🎬</div>
+                  <div>Select a video to play</div>
+                </div>
                 <div style="position:absolute;bottom:0;left:0;right:0;padding:10px;background:linear-gradient(transparent,rgba(0,0,0,0.7));font-size:12px;color:white;font-family:var(--mono)">
-                  <div id="nowPlayingTitle">Select a video to play</div>
+                  <div id="nowPlayingTitle"></div>
                 </div>
               </div>
               <div class="video-controls">
@@ -1709,25 +1714,32 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
       <button class="modal-close" onclick="closeModal('uploadVideoModal')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="field"><label>Title</label><input type="text" placeholder="My awesome video..."></div>
-      <div class="field"><label>Description</label><textarea rows="3" placeholder="Describe your video..."></textarea></div>
+      <div class="field"><label>Title</label><input type="text" id="videoUploadTitle" placeholder="My awesome video..."></div>
+      <div class="field"><label>Description</label><textarea rows="2" id="videoUploadDesc" placeholder="Describe your video..."></textarea></div>
       <div class="field"><label>Category</label>
-        <select><option>Code Streams</option><option>Tutorials</option><option>Music</option><option>Gaming</option><option>Other</option></select>
+        <select id="videoUploadCategory"><option>Code Streams</option><option>Tutorials</option><option>Music</option><option>Gaming</option><option>Other</option></select>
       </div>
-      <div class="file-drop-zone">
-        <div style="font-size:32px;margin-bottom:8px">🎬</div>
-        <div>Drop video or <strong>browse</strong></div>
+      <!-- Hidden real file input -->
+      <input type="file" id="videoFileInput" accept="video/*" style="display:none" onchange="onVideoFileChosen(this.files[0])">
+      <div class="file-drop-zone" id="videoDropZone"
+           onclick="document.getElementById('videoFileInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');onVideoFileChosen(event.dataTransfer.files[0])">
+        <div style="font-size:32px;margin-bottom:8px" id="videoDropIcon">🎬</div>
+        <div id="videoDropLabel">Drop video or <strong>browse</strong></div>
+        <div id="videoDropSub" style="font-size:10px;color:var(--text3);margin-top:4px">MP4, WebM, MOV supported</div>
       </div>
       <div class="field" style="margin-top:10px"><label>Monetize</label>
         <div style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" style="width:auto">
+          <input type="checkbox" id="videoMonetize" style="width:auto">
           <span style="font-size:11px;color:var(--text2)">Enable tipping / pay-per-view</span>
         </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('uploadVideoModal')">Cancel</button>
-      <button class="btn btn-r" onclick="closeModal('uploadVideoModal');showToast('Video uploading...','g')">🎬 Upload</button>
+      <button class="btn" onclick="closeModal('uploadVideoModal');resetVideoUploadModal()">Cancel</button>
+      <button class="btn btn-r" id="videoUploadBtn" onclick="submitVideoUpload()">🎬 Upload</button>
     </div>
   </div>
 </div>
@@ -1974,6 +1986,26 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('autoDiscoverModal')">Close</button>
       <button class="btn btn-g" onclick="connectAllDiscovered()">⚡ Connect All</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Folder Modal -->
+<div class="modal-overlay" id="newFolderModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-hdr">
+      <span class="modal-title">📁 New Folder</span>
+      <button class="modal-close" onclick="closeModal('newFolderModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Folder Name</label>
+        <input type="text" id="newFolderName" placeholder="my-folder" onkeydown="if(event.key==='Enter')createFolder()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('newFolderModal')">Cancel</button>
+      <button class="btn btn-g" onclick="createFolder()">📁 Create</button>
     </div>
   </div>
 </div>
@@ -3026,6 +3058,15 @@ function updateCredits(delta) {
   const ca = document.getElementById('creditAmt'); if(ca) ca.textContent = STATE.credits.toLocaleString();
   const se = document.getElementById('stat-earn'); if(se) se.textContent = `◈ ${STATE.credits.toLocaleString()}`;
   EventBus.emit('LEDGER', { msg:`Credit update: ${delta > 0 ? '+' : ''}${delta} → ◈ ${STATE.credits}` });
+}
+
+/* ── Open edit identity modal pre-populated with current values ── */
+function openEditProfile() {
+  const nameEl   = document.getElementById('editName');
+  const handleEl = document.getElementById('editHandle');
+  if (nameEl)   nameEl.value   = document.getElementById('idName')?.textContent   || STATE.handle || '';
+  if (handleEl) handleEl.value = STATE.handle || '';
+  openModal('editIdentityModal');
 }
 
 /* ── Save identity edits ── */
@@ -4107,13 +4148,125 @@ let videoPlaying = false;
 let videoProgress = 35;
 let videoProg;
 
+// ── Video upload state ─────────────────────────────────────────────────────
+let _pendingVideoFile = null; // File object chosen but not yet uploaded
+
+function onVideoFileChosen(file) {
+  if (!file || !file.type.startsWith('video/')) {
+    showToast('Please choose a video file', 'r');
+    return;
+  }
+  _pendingVideoFile = file;
+  // Pre-fill title from filename if empty
+  const titleEl = document.getElementById('videoUploadTitle');
+  if (titleEl && !titleEl.value) {
+    titleEl.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+  }
+  // Update drop zone to confirm selection
+  document.getElementById('videoDropIcon').textContent = '✓';
+  document.getElementById('videoDropLabel').textContent = file.name;
+  document.getElementById('videoDropSub').textContent =
+    (file.size / 1e6).toFixed(1) + ' MB — ready to upload';
+  document.getElementById('videoDropZone').style.borderColor = 'var(--green)';
+}
+
+function resetVideoUploadModal() {
+  _pendingVideoFile = null;
+  const fi = document.getElementById('videoFileInput');
+  if (fi) fi.value = '';
+  const icon  = document.getElementById('videoDropIcon');
+  const label = document.getElementById('videoDropLabel');
+  const sub   = document.getElementById('videoDropSub');
+  const zone  = document.getElementById('videoDropZone');
+  if (icon)  icon.textContent  = '🎬';
+  if (label) label.innerHTML   = 'Drop video or <strong>browse</strong>';
+  if (sub)   sub.textContent   = 'MP4, WebM, MOV supported';
+  if (zone)  zone.style.borderColor = '';
+  const title = document.getElementById('videoUploadTitle');
+  const desc  = document.getElementById('videoUploadDesc');
+  if (title) title.value = '';
+  if (desc)  desc.value  = '';
+}
+
+async function submitVideoUpload() {
+  if (!_pendingVideoFile) {
+    showToast('Please select a video file first', 'r');
+    return;
+  }
+  const title    = document.getElementById('videoUploadTitle').value.trim()
+                   || _pendingVideoFile.name;
+  const category = document.getElementById('videoUploadCategory').value;
+  const btn      = document.getElementById('videoUploadBtn');
+  btn.disabled   = true;
+  btn.textContent = '⏳ Uploading…';
+
+  try {
+    // Create a local object URL so the video is immediately playable
+    const localUrl = URL.createObjectURL(_pendingVideoFile);
+
+    let cid = null;
+    // If IPFS is available, add to network in the background
+    if (window.ipfs) {
+      showToast('Adding to IPFS…', 'c');
+      try {
+        const buf = new Uint8Array(await _pendingVideoFile.arrayBuffer());
+        const res = await window.ipfs.add(_pendingVideoFile.name, buf);
+        if (res.ok) {
+          cid = res.body.Hash;
+          showToast(`✓ Pinned to IPFS: ${cid.slice(0, 16)}…`, 'g');
+        }
+      } catch (ipfsErr) {
+        console.warn('[video] IPFS add failed, playing locally:', ipfsErr.message);
+      }
+    }
+
+    // Build a video entry and add it to STATE
+    const EMOJIS = ['🎬','🎥','📽️','🎞️','🌐','⚡','🔮','🏛️'];
+    const COLORS = [
+      'rgba(0,212,255,0.15)', 'rgba(0,230,118,0.15)',
+      'rgba(179,136,255,0.15)', 'rgba(255,193,7,0.15)'
+    ];
+    const newVideo = {
+      id:       'v_' + Date.now(),
+      title,
+      author:   STATE.handle || 'you',
+      category,
+      duration: '0:00',   // will be updated once metadata loads
+      views:    0,
+      emoji:    EMOJIS[Math.floor(Math.random() * EMOJIS.length)],
+      color:    COLORS[Math.floor(Math.random() * COLORS.length)],
+      localUrl,           // blob URL for local playback
+      cid,                // IPFS CID (may be null if no daemon)
+      ts:       Date.now(),
+    };
+
+    STATE.videos.unshift(newVideo);
+    renderVideoGrid();
+
+    // Auto-play the uploaded video
+    playVideo(newVideo.id);
+
+    closeModal('uploadVideoModal');
+    resetVideoUploadModal();
+    showToast(`✓ "${title}" added`, 'g');
+    EventBus.emit('VIDEO', { msg: `Uploaded: "${title}"` });
+  } catch (err) {
+    showToast('Upload failed: ' + err.message, 'r');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '🎬 Upload';
+  }
+}
+
 function renderVideoGrid() {
   const el = document.getElementById('videoGrid');
   if (!el) return;
   el.innerHTML = STATE.videos.map(v => `
     <div class="video-card" onclick="playVideo('${v.id}')">
       <div class="video-thumb" style="background:${v.color}">
-        ${v.emoji}
+        ${v.localUrl
+          ? `<video src="${v.localUrl}" style="width:100%;height:100%;object-fit:cover;pointer-events:none" muted preload="metadata"></video>`
+          : v.emoji}
         <div class="video-play-overlay">
           <div class="video-play-btn">▶</div>
         </div>
@@ -4134,36 +4287,92 @@ function renderVideoGrid() {
 }
 
 function playVideo(id) {
-  const v = STATE.videos.find(x=>x.id===id);
+  const v = STATE.videos.find(x => x.id === id);
   if (!v) return;
-  document.getElementById('nowPlayingTitle').textContent = v.title;
-  videoProgress = 0;
-  document.getElementById('videoProgress').style.width = '0%';
-  document.getElementById('videoTime').textContent = `0:00 / ${v.duration}`;
-  document.getElementById('videoPlayer').style.fontSize = '64px';
-  document.getElementById('videoPlayer').querySelector('div').textContent = v.title;
-  videoPlaying = true;
-  document.getElementById('videoPlayBtn').textContent = '⏸';
-  if (videoProg) clearInterval(videoProg);
-  videoProg = setInterval(() => {
-    if (videoPlaying) {
-      videoProgress = Math.min(100, videoProgress + 0.2);
-      document.getElementById('videoProgress').style.width = videoProgress + '%';
-      if (videoProgress >= 100) { clearInterval(videoProg); videoPlaying = false; document.getElementById('videoPlayBtn').textContent = '▶'; }
+
+  const videoEl      = document.getElementById('videoEl');
+  const placeholder  = document.getElementById('videoPlaceholder');
+  const titleEl      = document.getElementById('nowPlayingTitle');
+
+  if (titleEl) titleEl.textContent = v.title;
+
+  if (v.localUrl && videoEl) {
+    // Real file — play it with the HTML5 video element
+    videoEl.src     = v.localUrl;
+    videoEl.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+    videoEl.play().catch(() => {});
+    videoPlaying = true;
+    document.getElementById('videoPlayBtn').textContent = '⏸';
+
+    // Wire progress bar to real video time
+    if (videoProg) clearInterval(videoProg);
+    videoProg = setInterval(() => {
+      if (!videoEl.duration) return;
+      const pct = (videoEl.currentTime / videoEl.duration) * 100;
+      document.getElementById('videoProgress').style.width = pct + '%';
+      const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+      document.getElementById('videoTime').textContent =
+        `${fmt(videoEl.currentTime)} / ${fmt(videoEl.duration)}`;
+      // Update stored duration once known
+      if (videoEl.duration && v.duration === '0:00') {
+        v.duration = fmt(videoEl.duration);
+      }
+      if (videoEl.ended) {
+        clearInterval(videoProg);
+        videoPlaying = false;
+        document.getElementById('videoPlayBtn').textContent = '▶';
+      }
+    }, 250);
+  } else {
+    // Demo/simulated video — fall back to fake progress
+    if (videoEl) videoEl.style.display = 'none';
+    if (placeholder) {
+      placeholder.style.display = 'flex';
+      placeholder.style.flexDirection = 'column';
+      placeholder.style.alignItems = 'center';
+      placeholder.querySelector('div').textContent = v.emoji || '🎬';
     }
-  }, 100);
-  EventBus.emit('VIDEO', { msg:`Playing: "${v.title}" by ${v.author}` });
+    videoProgress = 0;
+    document.getElementById('videoProgress').style.width = '0%';
+    document.getElementById('videoTime').textContent = `0:00 / ${v.duration}`;
+    videoPlaying = true;
+    document.getElementById('videoPlayBtn').textContent = '⏸';
+    if (videoProg) clearInterval(videoProg);
+    videoProg = setInterval(() => {
+      if (videoPlaying) {
+        videoProgress = Math.min(100, videoProgress + 0.2);
+        document.getElementById('videoProgress').style.width = videoProgress + '%';
+        if (videoProgress >= 100) {
+          clearInterval(videoProg);
+          videoPlaying = false;
+          document.getElementById('videoPlayBtn').textContent = '▶';
+        }
+      }
+    }, 100);
+  }
+
+  v.views++;
+  EventBus.emit('VIDEO', { msg: `Playing: "${v.title}" by ${v.author}` });
 }
 
 function toggleVideoPlay() {
-  videoPlaying = !videoPlaying;
+  const videoEl = document.getElementById('videoEl');
+  videoPlaying  = !videoPlaying;
   document.getElementById('videoPlayBtn').textContent = videoPlaying ? '⏸' : '▶';
+  if (videoEl && videoEl.src) {
+    videoPlaying ? videoEl.play() : videoEl.pause();
+  }
 }
 function seekVideo(e) {
-  const bar = e.currentTarget;
-  const pct = e.offsetX / bar.clientWidth * 100;
+  const bar     = e.currentTarget;
+  const pct     = e.offsetX / bar.clientWidth * 100;
+  const videoEl = document.getElementById('videoEl');
   videoProgress = pct;
   document.getElementById('videoProgress').style.width = pct + '%';
+  if (videoEl && videoEl.duration) {
+    videoEl.currentTime = (pct / 100) * videoEl.duration;
+  }
 }
 function tipCreator() { showToast('Tipped creator ◈ 20!', 'g'); EventBus.emit('LEDGER', { msg:'Tipped video creator ◈ 20' }); updateCredits(-20); }
 function filterVideos() {}
@@ -4670,6 +4879,56 @@ function filterEvents(type, btn) {
 }
 
 /* ══════════════════════════════════════════════════
+   FILES HELPERS
+══════════════════════════════════════════════════ */
+function clearEvents() {
+  document.getElementById('homeEventLog').innerHTML = '';
+  STATE.events = [];
+  showToast('Event log cleared', 'c');
+}
+
+function setFilesView(mode) {
+  const el = document.getElementById('filesGrid');
+  if (!el) return;
+  if (mode === 'list') {
+    el.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:12px';
+    el.querySelectorAll('.file-card').forEach(c => {
+      c.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 12px;text-align:left;border-radius:var(--r)';
+    });
+  } else {
+    el.style.cssText = '';
+    el.querySelectorAll('.file-card').forEach(c => { c.style.cssText = ''; });
+  }
+  // Re-render so new cards adopt the layout class
+  renderFilesGrid();
+  if (mode === 'list') {
+    el.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:12px';
+    el.querySelectorAll('.file-card').forEach(c => {
+      c.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 12px;text-align:left;border-radius:var(--r)';
+    });
+  }
+}
+
+function createFolder() {
+  const input = document.getElementById('newFolderName');
+  const name  = input?.value?.trim();
+  if (!name) { showToast('Enter a folder name', 'r'); return; }
+  // Add as a virtual folder entry in the file tree
+  const el = document.getElementById('fileTree');
+  if (el) {
+    const item = document.createElement('div');
+    item.className = 'file-tree-item folder';
+    item.style.paddingLeft = '24px';
+    item.innerHTML = `<span>📁</span> ${name}`;
+    el.appendChild(item);
+  }
+  showToast(`Folder "${name}" created`, 'g');
+  EventBus.emit('FILE', { msg: `Created folder: ${name}` });
+  closeModal('newFolderModal');
+  if (input) input.value = '';
+}
+
+/* ══════════════════════════════════════════════════
    IDENTITY
 ══════════════════════════════════════════════════ */
 function renderBadges() {
@@ -4713,30 +4972,6 @@ function renderTxHistory() {
 function exportDID() {
   showToast('DID document exported!', 'v');
   EventBus.emit('SYS', { msg:'DID document exported' });
-}
-
-function saveIdentity() {
-  const name = document.getElementById('editName').value;
-  const handle = document.getElementById('editHandle').value;
-  STATE.handle = handle;
-  document.getElementById('tbHandle').textContent = handle;
-  document.getElementById('idName').textContent = name;
-  document.getElementById('idHandle').textContent = `@${handle}`;
-  document.getElementById('profileName').textContent = handle;
-  closeModal('editIdentityModal');
-  showToast('Identity updated!', 'v');
-  EventBus.emit('SYS', { msg:`Identity updated: @${handle}` });
-}
-
-/* ══════════════════════════════════════════════════
-   CREDITS
-══════════════════════════════════════════════════ */
-function updateCredits(delta) {
-  STATE.credits += delta;
-  if (STATE.credits < 0) STATE.credits = 0;
-  const ca = document.getElementById('creditAmt'); if(ca) ca.textContent = STATE.credits.toLocaleString();
-  const se = document.getElementById('stat-earn'); if(se) se.textContent = `◈ ${STATE.credits.toLocaleString()}`;
-  EventBus.emit('LEDGER', { msg:`Credit update: ${delta > 0 ? '+' : ''}${delta} → ◈ ${STATE.credits}` });
 }
 
 /* ══════════════════════════════════════════════════
@@ -4912,12 +5147,6 @@ if (document.readyState === 'loading') {
   });
 }
 
-
-function connectAllDiscovered() {
-  STATE.peers.filter(p=>p.online).forEach(p => rtcConnect(p.did, p.pubKeyB64||'').catch(()=>{}));
-  closeModal('autoDiscoverModal');
-  showToast(`Initiating RTC to ${STATE.peers.filter(p=>p.online).length} peers`, 'c');
-}
 
 /* ══════════════════════════════════════════════════
    PRIVATE CHANNEL INVITE SYSTEM (real AES-GCM keys)

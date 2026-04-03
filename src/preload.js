@@ -79,6 +79,22 @@ contextBridge.exposeInMainWorld('ipfs', {
     query: { arg: [topic, message] }
   }),
 
+  /** Subscribe to a pubsub topic — messages arrive via onPubsubMsg() callback */
+  pubsubSubscribe: (topic) => ipcRenderer.invoke('pubsub:subscribe', topic),
+
+  /** Unsubscribe from a pubsub topic and close the stream */
+  pubsubUnsubscribe: (topic) => ipcRenderer.invoke('pubsub:unsubscribe', topic),
+
+  /**
+   * Register a callback for incoming pubsub messages.
+   * Callback receives: { topic, from, data, seqno, topicIDs }
+   * `data` is already decoded from base64.
+   */
+  onPubsubMsg: (cb) => ipcRenderer.on('pubsub:msg', (_e, msg) => cb(msg)),
+
+  /** Remove all pubsub message listeners */
+  offPubsubMsg: () => ipcRenderer.removeAllListeners('pubsub:msg'),
+
   /** Subscribe to a pubsub topic (returns a ReadableStream via polling — see ipfsAdapter.js) */
   pubsubSub: (topic) => ipcRenderer.invoke('ipfs:api', {
     path: '/pubsub/sub',

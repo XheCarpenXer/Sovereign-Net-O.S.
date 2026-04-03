@@ -226,65 +226,102 @@
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  //  4. REAL PUBSUB → MESSENGER
-  //     Sends and receives real pubsub messages over IPFS.
+  //  4. REAL PUBSUB → MESSENGER  (Phase 3 upgrade — streaming, not polling)
   //     Topic format: sovereign-net/<channelId>
+  //
+  //  Architecture:
+  //    Publish:   renderer → pubsubPub → main → Kubo POST /pubsub/pub
+  //    Subscribe: main holds a PERSISTENT streaming HTTP connection to
+  //               Kubo /api/v0/pubsub/sub, decodes each newline-delimited
+  //               JSON message, and pushes it here via ipcRenderer
+  //               ('pubsub:msg').  No more polling — messages arrive in
+  //               real time as Kubo delivers them over GossipSub.
   // ════════════════════════════════════════════════════════════════════════
 
   const PUBSUB_TOPIC_PREFIX = 'sovereign-net/';
-  const POLL_INTERVAL       = 3000; // ms — pubsub subscription polling
-  const activePollers       = {};   // channelId → intervalId
+  const activeTopics        = new Set(); // channelIds with live streams
+
+  // ── Global message router ────────────────────────────────────────────────
+  // Registered once at boot.  Receives ALL subscribed topics and dispatches
+  // to the right channel in the messenger UI.
+  window.ipfs.onPubsubMsg(({ topic, from, data }) => {
+    if (!topic.startsWith(PUBSUB_TOPIC_PREFIX)) return;
+    const channelId = topic.slice(PUBSUB_TOPIC_PREFIX.length);
+
+    let payload;
+    try { payload = JSON.parse(data); } catch (_) { return; }
+
+    // Skip our own echoed messages
+    if (payload.did && payload.did === window.STATE?.did) return;
+
+    const msg = {
+      id:       payload.id     || crypto.randomUUID(),
+      channelId,
+      did:      payload.did    || `did:ipfs:${(from || 'unknown').slice(0, 12)}`,
+      handle:   payload.handle || (from || 'anon').slice(0, 8),
+      text:     payload.text   || '',
+      ts:       payload.ts     || Date.now(),
+      fromPeer: true,
+    };
+
+    // Append to STATE and re-render if this channel is active
+    if (window.STATE?.messages) {
+      if (!STATE.messages[channelId]) STATE.messages[channelId] = [];
+      STATE.messages[channelId].push(msg);
+    }
+    if (window.STATE?.activeChannel === channelId && window.renderMessages) {
+      renderMessages(channelId);
+    }
+
+    emit('MSG', `[${channelId}] ${msg.handle}: ${msg.text.slice(0, 60)}`);
+  });
 
   /**
-   * Override meshSendPublic to publish via IPFS pubsub
-   * (The existing function signature is preserved so nothing else breaks.)
+   * Override meshSendPublic to publish via IPFS GossipSub.
+   * Signature is preserved so nothing else in the app breaks.
    */
   const _origMeshSendPublic = window.meshSendPublic;
   window.meshSendPublic = async function (channelId, text) {
-    const topic = PUBSUB_TOPIC_PREFIX + channelId;
+    const topic   = PUBSUB_TOPIC_PREFIX + channelId;
     const payload = JSON.stringify({
       id:        crypto.randomUUID(),
       channelId,
-      did:       window.STATE?.did   || 'unknown',
+      did:       window.STATE?.did    || 'unknown',
       handle:    window.STATE?.handle || 'anon',
       text,
-      ts:        Date.now()
+      ts:        Date.now(),
     });
     try {
+      // Kubo expects the message body as base64
       const encoded = btoa(unescape(encodeURIComponent(payload)));
       await window.ipfs.pubsubPub(topic, encoded);
     } catch (e) {
-      // Fall back to BroadcastChannel mesh if IPFS pubsub fails
+      // Fall back to BroadcastChannel mesh if IPFS pubsub unavailable
       if (_origMeshSendPublic) return _origMeshSendPublic(channelId, text);
     }
   };
 
   /**
-   * Start polling pubsub for a channel.
-   * IPFS pubsub/sub returns newline-delimited JSON; we poll via short-lived requests.
+   * Open a persistent streaming subscription for a channel (idempotent).
+   * Message delivery happens in the global router above.
    */
-  function startPubsubPoller(channelId) {
-    if (activePollers[channelId]) return;
+  async function startPubsubStream(channelId) {
+    if (activeTopics.has(channelId)) return;
     const topic = PUBSUB_TOPIC_PREFIX + channelId;
-
-    // We use a repeated sub call (stateless polling).
-    // For a proper streaming approach, use EventSource or a WebSocket proxy.
-    activePollers[channelId] = setInterval(async () => {
-      try {
-        // Pubsub/ls shows active topics
-        const { ok, body } = await window.ipfs.api('/pubsub/ls');
-        if (!ok) return;
-        // Only subscribe/receive if there are peers publishing
-        // (For now pubsub polling is best-effort; full stream needs a proxy)
-      } catch (_) {}
-    }, POLL_INTERVAL);
+    try {
+      await window.ipfs.pubsubSubscribe(topic);
+      activeTopics.add(channelId);
+      emit('NET', `Subscribed to pubsub stream: ${topic}`);
+    } catch (e) {
+      emit('NET', `Pubsub subscribe failed for ${channelId}: ${e.message}`);
+    }
   }
 
-  /** Wire up pubsub polling when a channel is opened */
+  /** Wire up pubsub streaming when a channel is opened */
   const _origSwitchChannel = window.switchChannel;
   window.switchChannel = function (id) {
     if (_origSwitchChannel) _origSwitchChannel(id);
-    startPubsubPoller(id);
+    startPubsubStream(id);
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -388,6 +425,12 @@
     await syncNatStatus();
     await syncBandwidthLimits();
     patchFileUpload();
+
+    // ── Subscribe to the active channel (and global) at startup ─────────────
+    // This ensures pubsub streams are open before the user types anything.
+    const defaultChannel = window.STATE?.activeChannel || 'global';
+    await startPubsubStream(defaultChannel);
+    if (defaultChannel !== 'global') await startPubsubStream('global');
 
     toast('✓ IPFS Adapter active', 'g');
     emit('SYS', 'IPFS Adapter ready — real network active');

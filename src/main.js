@@ -21,6 +21,7 @@ const { DispatchKernel, createIpcBridge } = require('./kernel');
 const { attachPersistence }              = require('./kernel-persist');
 const { attachReplayBridge }             = require('./kernel-replay');
 const { KernelSync, attachSyncBridge }   = require('./kernel-sync');
+const { applyKuboConfig }               = require('./kubo-config');
 
 const kernel = new DispatchKernel({
   maxUnits:  500_000,  // reset every 60s by scheduler
@@ -38,17 +39,6 @@ const IPFS_GW    = 'http://127.0.0.1:8080';
 const IS_DEV     = process.argv.includes('--dev');
 const IS_MAC     = process.platform === 'darwin';
 const IS_WIN     = process.platform === 'win32';
-
-// ── NAT Traversal constants ────────────────────────────────────────────────
-// Kubo supports AutoNAT, Circuit Relay v2, and Hole Punching natively.
-// We enable them explicitly so they aren't disabled by stripped-down configs.
-const NAT_CONFIG = {
-  'AutoNAT.ServiceMode':          'enabled',           // advertise NAT service to others
-  'Swarm.EnableHolePunching':     true,                // DCUtR hole punching
-  'Swarm.RelayClient.Enabled':    true,                // use relay if direct fails
-  'Swarm.RelayService.Enabled':   true,                // act as relay for others
-  'Swarm.Transports.Network.Relay': true,
-};
 
 // BW and reputation state → managed by kernel.dispatch()
 
@@ -126,81 +116,116 @@ function findIpfsBinary() {
   return 'ipfs';
 }
 
+// ── Daemon restart backoff state ───────────────────────────────────────────
+let _daemonRestartAttempts = 0;
+const MAX_RESTART_ATTEMPTS = 3;
+
 // ── Start the Kubo daemon (if not already running) ─────────────────────────
+// Improvements over the original:
+//   1. Delegates ALL config to kubo-config.js (bootstrap, DHT, MDNS, ConnMgr, NAT)
+//   2. Detects corrupted repos (config exists but is invalid JSON) and re-inits
+//   3. Retries daemon start up to MAX_RESTART_ATTEMPTS times with exponential backoff
+//   4. Auto-restarts on unexpected exit (not triggered by app.quit)
+//   5. Graceful stop is wired in the before-quit handler at the bottom of the file
 async function ensureIpfsDaemon(onLog) {
   if (await isDaemonRunning()) {
     onLog('✓ Kubo daemon already running on localhost:5001');
+    _daemonRestartAttempts = 0;
     return;
   }
 
-  const bin = findIpfsBinary();
-  onLog(`Starting Kubo daemon: ${bin}`);
-
-  // Initialise repo if needed
-  const repoPath = process.env.IPFS_PATH || path.join(app.getPath('userData'), 'ipfs-repo');
-  if (!fs.existsSync(path.join(repoPath, 'config'))) {
-    onLog('Initialising IPFS repo at ' + repoPath);
-    await new Promise((res, rej) => {
-      const init = spawn(bin, ['init'], { env: { ...process.env, IPFS_PATH: repoPath } });
-      init.stderr.on('data', d => onLog(d.toString().trim()));
-      init.on('close', code => code === 0 ? res() : rej(new Error('ipfs init failed: ' + code)));
-    });
+  if (_daemonRestartAttempts >= MAX_RESTART_ATTEMPTS) {
+    onLog(`⚠ Daemon failed to start after ${MAX_RESTART_ATTEMPTS} attempts — check PATH and repo`);
+    return;
   }
 
-  // Enable pubsub + NAT traversal in config
-  try {
-    await new Promise((res, rej) => {
-      const p = spawn(bin, ['config', '--json', 'Pubsub.Enabled', 'true'],
-                      { env: { ...process.env, IPFS_PATH: repoPath } });
-      p.on('close', res);
-    });
+  _daemonRestartAttempts++;
+  const bin      = findIpfsBinary();
+  const repoPath = process.env.IPFS_PATH || path.join(app.getPath('userData'), 'ipfs-repo');
 
-    // ── NAT traversal: AutoNAT, DCUtR hole punching, Circuit Relay v2 ────
-    onLog('Applying NAT traversal configuration…');
-    for (const [key, value] of Object.entries(NAT_CONFIG)) {
-      await new Promise(res => {
-        const p = spawn(bin, ['config', '--json', key, JSON.stringify(value)],
-                        { env: { ...process.env, IPFS_PATH: repoPath } });
-        p.stderr.on('data', d => onLog(`  config ${key}: ${d.toString().trim()}`));
-        p.on('close', res);
-      });
+  onLog(`Starting Kubo daemon (attempt ${_daemonRestartAttempts}/${MAX_RESTART_ATTEMPTS}): ${bin}`);
+
+  // ── Repo init / corruption recovery ─────────────────────────────────────
+  const configPath = path.join(repoPath, 'config');
+  let needsInit    = !fs.existsSync(configPath);
+
+  if (!needsInit) {
+    // Verify config is valid JSON; re-init if it's corrupted
+    try {
+      JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch {
+      onLog('⚠ IPFS repo config corrupted — re-initialising repo');
+      try { fs.rmSync(repoPath, { recursive: true, force: true }); } catch (_) {}
+      needsInit = true;
     }
-    onLog('✓ NAT traversal config applied (AutoNAT + DCUtR + RelayV2)');
-    // Allow CORS for our renderer (localhost:5001 API)
-    const corsOrigins = JSON.stringify(['*']);
-    await new Promise(res => {
-      const p = spawn(bin, ['config', '--json', 'API.HTTPHeaders.Access-Control-Allow-Origin', corsOrigins],
-                      { env: { ...process.env, IPFS_PATH: repoPath } });
-      p.on('close', res);
-    });
-    await new Promise(res => {
-      const p = spawn(bin, ['config', '--json', 'API.HTTPHeaders.Access-Control-Allow-Methods',
-                            '["PUT","POST","GET"]'],
-                      { env: { ...process.env, IPFS_PATH: repoPath } });
-      p.on('close', res);
-    });
-  } catch (e) { onLog('Config warning: ' + e.message); }
+  }
 
-  // Launch the daemon
-  ipfsProc = spawn(bin, ['daemon', '--enable-pubsub-experiment'],
-                   { env: { ...process.env, IPFS_PATH: repoPath }, detached: false });
+  if (needsInit) {
+    onLog('Initialising IPFS repo at ' + repoPath);
+    try {
+      await new Promise((res, rej) => {
+        const init = spawn(bin, ['init'], { env: { ...process.env, IPFS_PATH: repoPath } });
+        init.stderr.on('data', d => onLog(d.toString().trim()));
+        init.on('close', code => code === 0 ? res() : rej(new Error('ipfs init failed: ' + code)));
+      });
+    } catch (initErr) {
+      onLog('✗ ipfs init failed: ' + initErr.message);
+      const backoff = 5000 * _daemonRestartAttempts;
+      onLog(`Retrying in ${backoff / 1000}s…`);
+      setTimeout(() => ensureIpfsDaemon(onLog), backoff);
+      return;
+    }
+  }
+
+  // ── Apply full Kubo config (bootstrap + DHT + MDNS + ConnMgr + NAT + pubsub) ──
+  try {
+    await applyKuboConfig(bin, repoPath, onLog);
+  } catch (cfgErr) {
+    onLog('Config warning: ' + cfgErr.message); // non-fatal
+  }
+
+  // ── Launch the daemon ────────────────────────────────────────────────────
+  ipfsProc = spawn(
+    bin,
+    ['daemon', '--enable-pubsub-experiment', '--migrate=true'],
+    { env: { ...process.env, IPFS_PATH: repoPath }, detached: false }
+  );
 
   ipfsProc.stdout.on('data', d => onLog(d.toString().trim()));
   ipfsProc.stderr.on('data', d => onLog(d.toString().trim()));
-  ipfsProc.on('error', err => onLog('Daemon error: ' + err.message));
+  ipfsProc.on('error', err => {
+    onLog('Daemon process error: ' + err.message);
+    ipfsProc = null;
+  });
   ipfsProc.on('close', code => {
     onLog(`Daemon exited (code ${code})`);
     ipfsProc = null;
+    // Auto-restart on unexpected exit (not triggered by intentional app quit)
+    if (!app.isQuitting && code !== 0) {
+      const backoff = 5000 * _daemonRestartAttempts;
+      onLog(`Unexpected daemon exit — restarting in ${backoff / 1000}s…`);
+      setTimeout(() => ensureIpfsDaemon(onLog), backoff);
+    }
   });
 
-  // Wait until the API is up (max 30 s)
+  // ── Wait until the API is up (max 45 s, poll every 500 ms) ──────────────
   let waited = 0;
-  while (!(await isDaemonRunning()) && waited < 30000) {
+  const MAX_WAIT = 45_000;
+  while (!(await isDaemonRunning()) && waited < MAX_WAIT) {
     await new Promise(r => setTimeout(r, 500));
     waited += 500;
   }
-  if (await isDaemonRunning()) onLog('✓ Kubo daemon ready');
-  else onLog('⚠ Daemon did not start within 30 s — check PATH');
+
+  if (await isDaemonRunning()) {
+    onLog('✓ Kubo daemon ready');
+    _daemonRestartAttempts = 0; // reset on success
+  } else {
+    onLog('⚠ Daemon did not start within 45 s — scheduling retry');
+    ipfsProc?.kill('SIGTERM');
+    ipfsProc = null;
+    const backoff = 5000 * _daemonRestartAttempts;
+    setTimeout(() => ensureIpfsDaemon(onLog), backoff);
+  }
 }
 
 // ── Create BrowserWindow ───────────────────────────────────────────────────
@@ -326,6 +351,104 @@ ipcMain.handle('ipfs:api', async (_event, { path: apiPath, method = 'POST', form
     req.on('error', e => resolve({ ok: false, error: e.message }));
     req.end();
   });
+});
+
+// ── Streaming Pubsub IPC Handler ──────────────────────────────────────────
+// This replaces the broken polling approach in ipfsAdapter.js.
+//
+// How it works:
+//   1. Renderer calls window.ipfs.pubsubSubscribe(topic) via preload bridge.
+//   2. Main process opens a persistent streaming HTTP connection to
+//      /api/v0/pubsub/sub?arg=<topic>  (Kubo streams newline-delimited JSON).
+//   3. Each arriving message is forwarded to the renderer via
+//      mainWindow.webContents.send('pubsub:msg', { topic, ...parsedMsg }).
+//   4. Renderer calls window.ipfs.pubsubUnsubscribe(topic) to tear down.
+//
+// Protocol detail:
+//   Kubo's pubsub/sub response body is a stream of JSON objects, one per line.
+//   Each object: { from: "<base64 peer id>", data: "<base64 payload>", ... }
+//   We decode both fields before forwarding.
+//
+// Active subscriptions are tracked in _pubsubStreams so we can clean up.
+
+const _pubsubStreams = new Map(); // topic → { req, aborted }
+
+ipcMain.handle('pubsub:subscribe', async (_event, topic) => {
+  if (_pubsubStreams.has(topic)) return { ok: true, already: true };
+
+  const urlObj  = new URL(`${IPFS_API}/api/v0/pubsub/sub`);
+  urlObj.searchParams.set('arg', topic);
+
+  const state = { req: null, aborted: false };
+  _pubsubStreams.set(topic, state);
+
+  function openStream() {
+    if (state.aborted) return;
+
+    const req = http.request({
+      hostname: urlObj.hostname,
+      port:     urlObj.port || 5001,
+      path:     urlObj.pathname + urlObj.search,
+      method:   'POST',
+      headers:  { 'Connection': 'keep-alive' },
+    });
+
+    state.req = req;
+
+    req.on('response', res => {
+      let buf = '';
+      res.on('data', chunk => {
+        buf += chunk.toString();
+        // Kubo sends one JSON object per line
+        const lines = buf.split('\n');
+        buf = lines.pop(); // keep any partial line
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line);
+            // Decode base64 fields
+            const from    = msg.from    ? Buffer.from(msg.from,    'base64').toString('utf8') : msg.from;
+            const dataStr = msg.data    ? Buffer.from(msg.data,    'base64').toString('utf8') : '';
+            mainWindow?.webContents?.send('pubsub:msg', {
+              topic,
+              from,
+              data:       dataStr,
+              seqno:      msg.seqno,
+              topicIDs:   msg.topicIDs,
+            });
+          } catch (_) { /* malformed line — skip */ }
+        }
+      });
+
+      res.on('end', () => {
+        // Kubo closed the stream (e.g. daemon restart) — reconnect after a delay
+        if (!state.aborted) {
+          setTimeout(openStream, 2000);
+        }
+      });
+    });
+
+    req.on('error', () => {
+      // Daemon not reachable yet — retry
+      if (!state.aborted) {
+        setTimeout(openStream, 3000);
+      }
+    });
+
+    req.end();
+  }
+
+  openStream();
+  return { ok: true };
+});
+
+ipcMain.handle('pubsub:unsubscribe', async (_event, topic) => {
+  const state = _pubsubStreams.get(topic);
+  if (!state) return { ok: true };
+  state.aborted = true;
+  try { state.req?.destroy(); } catch (_) {}
+  _pubsubStreams.delete(topic);
+  return { ok: true };
 });
 
 // ── App identity — must be set before app.whenReady() ─────────────────────
@@ -597,6 +720,12 @@ app.on('before-quit', () => {
   app.isQuitting = true;
   // Flush kernel state to disk before exit
   kernel._persist?.flushSync();
+  // Tear down all active pubsub streams cleanly
+  for (const [, state] of _pubsubStreams) {
+    state.aborted = true;
+    try { state.req?.destroy(); } catch (_) {}
+  }
+  _pubsubStreams.clear();
   // Stop the IPFS daemon if we spawned it
   if (ipfsProc) {
     ipfsProc.kill('SIGTERM');
