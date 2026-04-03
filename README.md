@@ -62,7 +62,7 @@ Every capability is implemented using Web platform primitives:
 
 - **BroadcastChannel** for real multi-tab P2P mesh networking
 - **IndexedDB** for persistent, structured local storage
-- **Web Crypto API** for Ed25519 signatures and AES-256-GCM encryption
+- **Web Crypto API** for ECDSA P-256 signatures and AES-256-GCM encryption
 - **SubtleCrypto** for CID hashing and key derivation
 - **ReadableStream** for streaming AI inference output
 - **WebRTC** (simulated in browser, real in Electron) for direct peer channels
@@ -79,7 +79,7 @@ No install. No build step. No internet required after download.
 2. Open it in Chrome, Edge, or Firefox
 3. Open 2–4 tabs side by side — they auto-discover each other via `BroadcastChannel` and form a live mesh
 
-**That's it.** Peer discovery, Ed25519 signed commits, AES-256-GCM encrypted channels, CID-addressed DAG storage, and gossip-protocol state sync all run locally in your browser across tabs.
+**That's it.** Peer discovery, ECDSA P-256 signed commits, AES-256-GCM encrypted channels, CID-addressed DAG storage, and gossip-protocol state sync all run locally in your browser across tabs.
 
 > **Tip:** Open tabs in different windows (not just different tabs in the same window) to better simulate distinct nodes. Each tab generates its own DID and keypair on first run.
 
@@ -135,7 +135,7 @@ Peers are discovered automatically via `BroadcastChannel` on page load. Each pee
 A fully functional collaborative code editor backed by a Merkle-DAG versioning system.
 
 **Versioning:**
-- Every save creates a signed DAG commit containing the file diff, parent CID, author DID, Ed25519 signature, and a vector clock timestamp
+- Every save creates a signed DAG commit containing the file diff, parent CID, author DID, ECDSA P-256 signature, and a vector clock timestamp
 - Commits are content-addressed — the CID is a SHA-256 hash of the commit data
 - Commit history is rendered as a visual DAG tree with branch/merge visualization
 - Conflict resolution uses deterministic LCA (Lowest Common Ancestor) merge with LWW-CRDT fallback
@@ -153,7 +153,7 @@ A fully functional collaborative code editor backed by a Merkle-DAG versioning s
 **Other editor features:**
 - Multiple file tabs with CID-addressed storage
 - Shared state panel — inspect live CRDT key-value store
-- Signature audit log — verify every commit's Ed25519 signature
+- Signature audit log — verify every commit's ECDSA P-256 signature
 - Share button — broadcast current file to the mesh
 
 ---
@@ -202,7 +202,7 @@ A decentralized social platform — no algorithm, no moderation, no central serv
 - **Suggested peers** — discovery panel for new nodes on the mesh
 - **Compose modal** — rich post composer with media attachment support
 
-Posts are signed with the author's Ed25519 key and stored as DAG nodes. The feed is purely local — it shows posts from peers you are connected to in this mesh session.
+Posts are signed with the author's ECDSA P-256 key and stored as DAG nodes. The feed is purely local — it shows posts from peers you are connected to in this mesh session.
 
 ---
 
@@ -294,7 +294,7 @@ A 30+ command terminal with real access to node internals.
 ```
 whoami          — show your DID, handle, and public key
 id              — show full identity object
-pubkey          — print your base64 Ed25519 public key
+pubkey          — print your base64 ECDSA P-256 public key
 ```
 
 **DAG & storage:**
@@ -323,7 +323,7 @@ run <code>      — execute JavaScript in the sandboxed runtime
 
 **Security:**
 ```
-sig-log         — print the Ed25519 signature audit log
+sig-log         — print the ECDSA P-256 signature audit log
 audit           — run the RRTK security pattern scanner
 ```
 
@@ -341,14 +341,14 @@ help            — list all available commands
 
 Sovereign identity — no username/password, no OAuth, no account.
 
-- **DID** — a `did:svn:0x...` decentralized identifier derived from your Ed25519 public key, generated on first launch and persisted in IndexedDB
-- **Keypair** — Ed25519 keypair generated using Web Crypto API; private key never leaves the device
+- **DID** — a `did:svn:0x...` decentralized identifier derived from your ECDSA P-256 public key, generated on first launch and persisted in IndexedDB
+- **Keypair** — ECDSA P-256 keypair generated using Web Crypto API; private key never leaves the device
 - **Handle & avatar** — human-readable display name and emoji avatar; editable and broadcast to peers
 - **Badges** — earned badges for node contributions (Early Node, Contributor, Validator, etc.)
 - **Reputation score** — computed from mesh participation, signed commits, and peer interactions
 - **Transaction history** — full ledger of all ◈ credit sends and receives
 - **Export DID** — copy your DID document to clipboard for sharing
-- **Key migration** — automatic detection and re-generation if a stale key format is found (Ed25519 → ECDSA P-256)
+- **Key migration** — automatic detection and re-generation if a legacy key format is found (migrates stale keys to ECDSA P-256)
 
 ---
 
@@ -406,7 +406,7 @@ Everything you see is actually happening in the browser — not mocked.
 ### Identity & Keys
 
 ```
-Ed25519 keypair  →  generated once via Web Crypto API
+ECDSA P-256 keypair  →  generated once via Web Crypto API
                  →  private key stored in IndexedDB (never transmitted)
                  →  public key broadcast in every peer announcement
 DID              →  did:svn:0x<hex-derived-from-pubkey>
@@ -419,7 +419,7 @@ DID              →  did:svn:0x<hex-derived-from-pubkey>
 Primary transport:  BroadcastChannel (same-origin multi-tab)
   — channel name: 'sovereign-net-v1'
   — message envelope: { type, from, payload, sig, ts }
-  — all messages Ed25519 signed by sender
+  — all messages ECDSA P-256 signed by sender
 
 Peer announcement:  broadcast on connect + every 15s (heartbeat)
 Peer health check:  30s timeout — peers who miss 2 heartbeats are dropped
@@ -444,14 +444,14 @@ IndexedDB stores:
 DAG node structure:
   { cid, parent, data, author, sig, ts, clock }
   — cid: SHA-256 hash of (parent + data + author + ts)
-  — sig: Ed25519 signature over cid by author's private key
+  — sig: ECDSA P-256 signature over cid by author's private key
   — clock: vector clock value for this author
 ```
 
 ### Crypto Layer
 
 ```
-Signatures:     Ed25519 (Web Crypto API) — all DAG commits, peer announcements, state writes
+Signatures:     ECDSA P-256 (Web Crypto API) — all DAG commits, peer announcements, state writes
 Encryption:     AES-256-GCM — channel messages, encrypted file storage
 Key derivation: PBKDF2 (planned for channel key wrapping)
 Hashing:        SHA-256 via SubtleCrypto — CID computation for all content
@@ -595,15 +595,15 @@ sovereign-net-os/
 │   ├── main.js                       ← Electron main process + Kubo lifecycle
 │   ├── preload.js                    ← contextBridge — exposes window.ipfs to renderer
 │   ├── ipfsAdapter.js                ← Patches simulated subsystems with live Kubo calls
-│   ├── kernel.js                     ← Core kernel (browser build source)
-│   ├── kernel-client.js              ← Client-facing kernel API
+│   ├── kernel.js                     ← DispatchKernel: typed errors, semantic DAG merge (injected by setup.sh)
+│   ├── kernel-client.js              ← Client bridge to DispatchKernel (injected by setup.sh)
 │   ├── kernel-persist.js             ← IndexedDB persistence layer
 │   ├── kernel-replay.js              ← Event replay and state export
 │   ├── kernel-sync.js                ← CRDT sync and gossip engine
-│   └── kernel-adversarial-tests.js   ← Adversarial test suite for kernel hardening
+│   └── kernel-adversarial-tests.js   ← Adversarial test suite (10 hostile scenarios)
 ├── scripts/
-│   ├── setup.sh                      ← One-shot setup: deps + Kubo detection + adapter inject
-│   └── index.html                    ← Setup script output staging area
+│   ├── setup.sh                      ← One-shot setup: deps + Kubo detection + adapter inject (also wires kernel modules)
+│   └── index.html                    ← Kept in sync with root index.html (canonical source)
 ├── docs/
 │   └── sovereign-net-os-docs.pdf     ← Full technical documentation
 ├── LICENSE-COMMUNITY                 ← Community use license
@@ -630,6 +630,8 @@ npm run build:all
 
 Output lands in `dist/`. Electron Builder handles code signing stubs, app icons, and installer generation.
 
+> **Before building:** Add your app icons to the `assets/` directory. See `assets/README.md` for the required filenames and a quick generation guide. Builds will warn or fail if the icon files are absent.
+
 ### Bundling Kubo (Zero-Dependency Install)
 
 To ship Kubo inside the app so users don't need to install it separately:
@@ -640,20 +642,7 @@ To ship Kubo inside the app so users don't need to install it separately:
    - `bin/ipfs` (macOS / Linux)
    - `bin/ipfs.exe` (Windows)
 
-3. Add `"bin/**/*"` to the `files` array in `package.json` under `build`:
-
-```json
-"build": {
-  "files": [
-    "src/**/*",
-    "assets/**/*",
-    "index.html",
-    "bin/**/*"
-  ]
-}
-```
-
-`main.js` checks `resources/bin/ipfs` first at runtime and uses it automatically if present.
+`bin/**/*` is already included in `package.json`'s `build.files` array. `main.js` checks `resources/bin/ipfs` first at runtime and uses it automatically if present.
 
 ---
 
@@ -665,7 +654,7 @@ Full list of commands available in the ⌨️ Console view:
 |---------|-------------|
 | `whoami` | Print your DID, handle, avatar, and credit balance |
 | `id` | Full identity object dump |
-| `pubkey` | Print your base64-encoded Ed25519 public key |
+| `pubkey` | Print your base64-encoded ECDSA P-256 public key |
 | `peers` | List all known peers with DID, handle, and latency |
 | `ping <did>` | Send a ping message to a peer and await pong |
 | `gossip <msg>` | Broadcast a raw gossip message to all peers |
@@ -678,7 +667,7 @@ Full list of commands available in the ⌨️ Console view:
 | `state` | Dump the full CRDT shared state key-value store |
 | `state-set <key> <val>` | Write a signed key-value pair to shared state |
 | `run <code>` | Execute JavaScript in the sandboxed runtime |
-| `sig-log` | Print the Ed25519 signature audit log |
+| `sig-log` | Print the ECDSA P-256 signature audit log |
 | `audit` | Run RRTK vulnerability scanner on current session code |
 | `replay` | Replay the full event bus log from session start |
 | `export-state` | Export a full JSON snapshot of node state to console |

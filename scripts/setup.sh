@@ -105,6 +105,45 @@ else
   fi
 fi
 
+# ── 6b. Inject kernel.js — DispatchKernel (typed errors, semantic DAG merge) ──
+# Must come before kernel-client.js and ext-host.js.
+echo ""
+echo "→ Injecting kernel.js…"
+if grep -q 'src/kernel.js' index.html 2>/dev/null; then
+  echo "✓ kernel.js already injected"
+else
+  if grep -q '</body>' index.html 2>/dev/null; then
+    if sed --version 2>/dev/null | grep -q GNU; then
+      sed -i 's|</body>|<script src="src/kernel.js"></script>\n</body>|' index.html
+    else
+      sed -i '' 's|</body>|<script src="src/kernel.js"></script>\
+</body>|' index.html
+    fi
+    echo "✓ Injected <script src=\"src/kernel.js\"></script> before </body>"
+  else
+    echo "⚠  Could not find </body> — add manually: <script src=\"src/kernel.js\"></script>"
+  fi
+fi
+
+# ── 6c. Inject kernel-client.js — client bridge to DispatchKernel ──────────
+echo ""
+echo "→ Injecting kernel-client.js…"
+if grep -q 'src/kernel-client.js' index.html 2>/dev/null; then
+  echo "✓ kernel-client.js already injected"
+else
+  if grep -q '</body>' index.html 2>/dev/null; then
+    if sed --version 2>/dev/null | grep -q GNU; then
+      sed -i 's|</body>|<script src="src/kernel-client.js"></script>\n</body>|' index.html
+    else
+      sed -i '' 's|</body>|<script src="src/kernel-client.js"></script>\
+</body>|' index.html
+    fi
+    echo "✓ Injected <script src=\"src/kernel-client.js\"></script> before </body>"
+  else
+    echo "⚠  Could not find </body> — add manually: <script src=\"src/kernel-client.js\"></script>"
+  fi
+fi
+
 # ── 7. Inject ext-host — module extension bus ──────────────
 echo ""
 echo "→ Injecting ext-host…"

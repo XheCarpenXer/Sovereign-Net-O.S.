@@ -26,6 +26,7 @@
     "files": [
       "src/**/*",
       "assets/**/*",
+      "bin/**/*",
       "index.html"
     ],
     "mac": {

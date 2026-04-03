@@ -539,7 +539,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
             <div class="card">
               <div class="card-hdr">
                 <span class="card-title">🌐 Online Peers</span>
-                <span class="badge badge-c" id="peerCount">24</span>
+                <span class="badge badge-c" id="peerCount">0</span>
               </div>
               <div id="homePeers" style="max-height:180px;overflow-y:auto"></div>
             </div>
@@ -1221,7 +1221,7 @@ textarea{resize:vertical} select option{background:var(--bg0)} button{cursor:poi
                 </div>
                 <div style="padding:12px">
                   <div class="field"><label>Public Key (ECDSA P-256)</label>
-                    <div class="key-display" id="pubKeyDisplay">ed25519:4KRJ2Y8Cx3mNpz7HtVqbLwDfGsAeU1...</div>
+                    <div class="key-display" id="pubKeyDisplay">ecdsa:generating...</div>
                   </div>
                   <div class="field"><label>DID Document Hash</label>
                     <div class="key-display">bafyreib2rxk3rybk3asobf2fl4c3hovfnjqpwvobxqfxpjmuyomlubqhi</div>
@@ -3038,7 +3038,7 @@ async function loadOrCreateIdentity() {
   document.getElementById('idHandle').textContent = `@${STATE.handle}`;
   document.getElementById('idName').textContent   = STATE.handle;
   document.getElementById('profileName').textContent = STATE.handle;
-  document.getElementById('pubKeyDisplay').textContent = `ed25519:${STATE.pubKeyB64.slice(0,32)}...`;
+  document.getElementById('pubKeyDisplay').textContent = `ecdsa:${STATE.pubKeyB64.slice(0,32)}...`;
 }
 
 /* ── Load persisted messages ── */
@@ -3201,11 +3201,15 @@ function generatePeers(n=24) {
     vx: (Math.random()-.5)*0.002, vy: (Math.random()-.5)*0.002
   }));
 }
-STATE.peers = generatePeers(24);
+STATE.peers = []; // Real peers join via BroadcastChannel when other tabs open
 
 function renderHomePeers() {
   const el = document.getElementById('homePeers');
   if (!el) return;
+  if (STATE.peers.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:12px;text-align:center">No peers connected yet.<br>Open another tab with this app to join the mesh.</div>';
+    return;
+  }
   el.innerHTML = STATE.peers.slice(0,8).map(p => `
     <div class="peer-item">
       <div class="peer-avi" style="background:${p.color}">${p.avi}</div>
@@ -4701,7 +4705,7 @@ const TERM_CMDS = {
     'SharedState: ' + Object.keys(SharedState.snapshot()).length + ' CRDT keys',
     'Crypto:      ECDSA P-256 + AES-256-GCM',
   ],
-  whoami: () => [STATE.did, '@' + STATE.handle, 'ed25519:' + STATE.pubKeyB64.slice(0,32) + '...'],
+  whoami: () => [STATE.did, '@' + STATE.handle, 'ecdsa:' + STATE.pubKeyB64.slice(0,32) + '...'],
   peers: () => STATE.peers.length
     ? STATE.peers.slice(0,12).map(p => (p.online?'*':'-') + ' ' + (p.handle||'?') + ' ' + (p.did||'').slice(0,20) + ' ' + (p.latency||0) + 'ms ' + (p.dc?'[RTC]':'[bus]'))
     : ['No peers. Open another tab with this app.'],
