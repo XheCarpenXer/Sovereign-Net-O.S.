@@ -71,9 +71,7 @@ echo "→ Injecting IPFS adapter into index.html…"
 if grep -q 'ipfsAdapter.js' index.html 2>/dev/null; then
   echo "✓ Adapter already injected"
 else
-  # Insert before </body>
   if grep -q '</body>' index.html 2>/dev/null; then
-    # Use sed on macOS (BSD) and Linux (GNU)
     if sed --version 2>/dev/null | grep -q GNU; then
       sed -i 's|</body>|<script src="src/ipfsAdapter.js"></script>\n</body>|' index.html
     else
@@ -87,6 +85,79 @@ else
   fi
 fi
 
+# ── 6. Inject ENOSStorage — unified IndexedDB API ──────────
+# Must come before ext-host.js so api.storage is ready when modules boot.
+echo ""
+echo "→ Injecting ENOSStorage…"
+if grep -q 'enos-storage.js' index.html 2>/dev/null; then
+  echo "✓ ENOSStorage already injected"
+else
+  if grep -q '</body>' index.html 2>/dev/null; then
+    if sed --version 2>/dev/null | grep -q GNU; then
+      sed -i 's|</body>|<script src="src/enos-storage.js"></script>\n</body>|' index.html
+    else
+      sed -i '' 's|</body>|<script src="src/enos-storage.js"></script>\
+</body>|' index.html
+    fi
+    echo "✓ Injected <script src=\"src/enos-storage.js\"></script> before </body>"
+  else
+    echo "⚠  Could not find </body> — add manually: <script src=\"src/enos-storage.js\"></script>"
+  fi
+fi
+
+# ── 7. Inject ext-host — module extension bus ──────────────
+echo ""
+echo "→ Injecting ext-host…"
+if grep -q 'ext-host.js' index.html 2>/dev/null; then
+  echo "✓ ext-host already injected"
+else
+  if grep -q '</body>' index.html 2>/dev/null; then
+    if sed --version 2>/dev/null | grep -q GNU; then
+      sed -i 's|</body>|<script src="src/ext-host.js"></script>\n</body>|' index.html
+    else
+      sed -i '' 's|</body>|<script src="src/ext-host.js"></script>\
+</body>|' index.html
+    fi
+    echo "✓ Injected <script src=\"src/ext-host.js\"></script> before </body>"
+  else
+    echo "⚠  Could not find </body> — add manually: <script src=\"src/ext-host.js\"></script>"
+  fi
+fi
+
+# ── 8. Inject modules from the modules/ directory ──────────
+# To add a new module: drop a .js file in modules/ and re-run setup.sh.
+# The loop below injects each one if not already present.
+echo ""
+echo "→ Scanning modules/ directory…"
+MODULES_DIR="$SCRIPT_DIR/../modules"
+if [ -d "$MODULES_DIR" ]; then
+  INJECTED=0
+  for mod in "$MODULES_DIR"/*.js; do
+    # Skip the host files themselves (they're in src/, already handled above)
+    filename=$(basename "$mod")
+    if [[ "$filename" == "enos-storage.js" || "$filename" == "ext-host.js" || "$filename" == "setup.sh" ]]; then
+      continue
+    fi
+    if grep -q "$filename" index.html 2>/dev/null; then
+      echo "  ✓ $filename already injected"
+    else
+      if sed --version 2>/dev/null | grep -q GNU; then
+        sed -i "s|</body>|<script src=\"modules/${filename}\"></script>\n</body>|" index.html
+      else
+        sed -i '' "s|</body>|<script src=\"modules/${filename}\"></script>\
+</body>|" index.html
+      fi
+      echo "  ✓ Injected modules/$filename"
+      INJECTED=$((INJECTED + 1))
+    fi
+  done
+  if [ $INJECTED -eq 0 ] && ! ls "$MODULES_DIR"/*.js 2>/dev/null | grep -qv "enos-storage\|ext-host"; then
+    echo "  (no extra modules found — drop .js files in modules/ to auto-inject)"
+  fi
+else
+  echo "  (no modules/ directory found — create it to start adding modules)"
+fi
+
 # ── Done ───────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════╗"
@@ -95,5 +166,8 @@ echo "║                                              ║"
 echo "║   Start the app:   npm start                 ║"
 echo "║   Dev mode:        npm run dev               ║"
 echo "║   Build for dist:  npm run build:mac         ║"
+echo "║                                              ║"
+echo "║   Add modules:     drop .js in modules/      ║"
+echo "║                    re-run setup.sh           ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""

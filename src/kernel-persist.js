@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Sovereign OS Contributors
+ *
+ * This file is part of Sovereign Net OS.
+ * Licensed under the Sovereign OS Community License (LICENSE-COMMUNITY).
+ * Commercial use requires a separate Commercial License (LICENSE-COMMERCIAL).
+ *
+ * Retain this notice in all copies and derivative works.
+ */
+
 "use strict";
 
 /**
